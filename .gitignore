@@ -1,0 +1,12 @@
+build/
+.vscode/
+*.nims
+*.deploy
+*.directory
+*.exe
+*.knownPackages
+*
+!/**/
+!LICENSE
+!README
+!*.*

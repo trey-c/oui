@@ -1,0 +1,3 @@
+nimble install https://github.com/yglukhov/android
+nimble install https://github.com/yglukhov/wayland
+ouideploy todo
