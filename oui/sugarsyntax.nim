@@ -237,6 +237,14 @@ template mouse_motion*(inner: untyped) =
   if event.event_mod == UiEventMotion:
     `inner`
 
+template mouse_enter*(inner: untyped) =
+  if event.event_mod == UiEventEnter:
+    `inner`
+
+template mouse_leave*(inner: untyped) =
+  if event.event_mod == UiEventLeave:
+    `inner`
+
 template arrange_layout*(inner: untyped) =
   self.arrange_layout = proc() {.closure.} =
     `inner`

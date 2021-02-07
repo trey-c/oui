@@ -193,8 +193,29 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
       if ev.event_mod == UiEventPress and ev.button == 1:
         if n.wants_focus and n.has_focus == false:
           window.request_focus(n)
-    window.handle_event(n, ev)
+  
+      if n.hovered == false:
+        n.hovered = true
+        var tmp = ev.event_mod
+        ev.event_mod = UiEventEnter
+        window.handle_event(n, ev)
+        ev.event_mod = tmp
+      var oldx = ev.x
+      var oldy = ev.y
+      ev.x = int ev.x - int n.x
+      ev.y = int ev.y - int n.y
+      window.handle_event(n, ev) 
+      ev.x = oldx
+      ev.y = oldy
+    else:
+      if n.hovered:
+        n.hovered = false
+        var tmp = ev.event_mod
+        ev.event_mod = UiEventLeave
+        window.handle_event(n, ev)
+        ev.event_mod = tmp
 
+      
 proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
   result = UiNode(kind: k,
     id: id,

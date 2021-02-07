@@ -150,5 +150,18 @@ when defined(testing) and is_main_module:
   window app:
     title "Test App"
     size 600, 400
+    box:
+      update:
+        size 200, 200
+        center parent
+      events:
+        mouse_motion:
+          echo "Motion " & $event.x & ":" & $event.y
+        mouse_enter:
+          echo "Mouse entered " & $self.name
+        mouse_leave:
+          echo "Mouse left " & $self.name
+
+      color "#ff0000"
   app.show()  
   oui_main()

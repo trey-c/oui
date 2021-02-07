@@ -40,7 +40,8 @@ type
 
   UiEventMod* = enum
     UiEventPress, UiEventRelease, UiEventMotion
-    UiEventExpose, UiEventResize
+    UiEventExpose, UiEventResize, UiEventEnter,
+    UiEventLeave
 
   UiEvent* = object
     event_mod*: UiEventMod
@@ -80,7 +81,7 @@ type
     x*, y*, w*, h*: float32
     margin_top*, margin_left*, margin_bottom*, margin_right*: float32
     model*: UiModel
-    clip*, visible*, hovered, has_focus*, wants_focus*, animating*,
+    clip*, visible*, hovered*, has_focus*, wants_focus*, animating*,
         need_redraw*: bool
     update_attributes*: seq[UpdateAttributesCb]
     on_event*: seq[OnEventCb]
