@@ -68,14 +68,15 @@ type
 
   UpdateAttributesCb* = proc(self, parent: UiNode)
   OnEventCb* = proc(self, parent: UiNode, event: var UiEvent)
-  DrawPostCb* = proc(surface: ptr cairo.Surface)
+  DrawPostCb* = proc()
 
   UiNodeKind* = enum
     UiWindow, UiBox, UiText,
     UiImage, UiCanvas, UiLayout
 
   UiNode* = ref object
-    parent*: UiNode
+    parent*, window*: UiNode
+    surface*: cairo.PSurface
     children*: seq[UiNode]
     id*: string
     x*, y*, w*, h*: float32

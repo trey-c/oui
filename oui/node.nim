@@ -22,7 +22,7 @@ var
   parent*, prev_parent*, self*: UiNode
   event*: UiEvent
 
-proc draw(node: UiNode, surface: ptr Surface)
+proc draw(node: UiNode)
 
 proc set_top*(node: UiNode, top: UiAnchor) =
   node.top_anchored = true
@@ -98,23 +98,23 @@ proc draw_children(node: UiNode, ctx: ptr Context) =
     if child.need_redraw == false:
       continue
     ctx.save()
-    var surface = image_surface_create(FormatArgb32, int32 child.w, int32 child.h)
-    child.draw(surface)
-    ctx.set_source(surface, float64 child.x - node.x, float64 child.y - node.y)
+    child.draw()
+    ctx.set_source(child.surface, float64 child.x - node.x, float64 child.y - node.y)
     ctx.paint()
+    child.surface.destroy()
     child.need_redraw = false
     ctx.restore()
-    surface.destroy()
 
-proc draw(node: UiNode, surface: ptr Surface) =
+proc draw(node: UiNode) =
   if node.visible == false:
     return
 
-  var ctx = surface.create()
-  node.clip_with_children(ctx)
+  node.surface = image_surface_create(FormatArgb32, int32 node.w, int32 node.h)
+  var ctx = node.surface.create()
+  #node.clip_with_children(ctx) # TODO: Borked but not a big deal?
   case node.kind:
     of UiWindow:
-      ctx.set_source_rgba(1, 1, 1, 1)
+      ctx.set_source_rgba(1, 1, 1, 0)
       ctx.rectangle(0f, 0f, float64 node.w, float64 node.h)
       ctx.fill()
     of UiBox:
@@ -134,11 +134,11 @@ proc draw(node: UiNode, surface: ptr Surface) =
       discard
     else:
       discard
-
+  
   node.draw_children(ctx)
   for draw_post in node.draw_post:
     if draw_post.isNil() == false:
-      draw_post(surface)
+      draw_post()
   ctx.destroy()
 
 proc contains*(node: UiNode, x, y: float32): bool =
@@ -163,18 +163,12 @@ proc needs_redraw*(node: UiNode) =
   for n in node.children:
     needs_redraw(n)
 
-proc queue_redraw*(window, target: UiNode = nil, update: bool = true) =
-  assert window != nil and window.kind == UiWindow
-  if target != nil:
-    if update:
-      target.trigger_update_attributes()
+proc queue_redraw*(target: UiNode = nil, update: bool = true) =
+  if update:
+    target.trigger_update_attributes()
+  if target.kind != UiWindow:
     target.needs_redraw()
-    window.native.expose()
-  else:
-    if update:
-      window.trigger_update_attributes()
-    window.needs_redraw()
-    window.native.expose()
+  target.window.native.expose()
 
 proc resize*(node: UiNode, w, h: float32) =
   if node.kind == UiWindow:
@@ -215,7 +209,6 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
         window.handle_event(n, ev)
         ev.event_mod = tmp
 
-      
 proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
   result = UiNode(kind: k,
     id: id,
@@ -239,6 +232,7 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     top_anchored: false)
 
   if result.kind == UiWindow:
+    result.window = result
     result.title = id
     result.is_popup = false
     result.focused_node = nil
@@ -249,14 +243,14 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
       if ev.event_mod == UiEventResize:
         window.native.width = ev.w
         window.native.height = ev.h
+        window.needs_redraw()
         window.resize(float32 ev.w, float32 ev.h)
       elif ev.event_mod == UiEventExpose:
         window.need_redraw = true
-        var surface = image_surface_create(FormatArgb32, int32 window.w, int32 window.h)
-        window.draw(surface)
-        window.native.ctx.set_source(surface, 0f, 0f)
+        window.draw()
+        window.native.ctx.set_source(window.surface, 0f, 0f)
         window.native.ctx.paint()
-        surface.destroy()
+        window.surface.destroy()
         window.need_redraw = false
       else:
         window.handle_event(window, tmp)
@@ -286,6 +280,7 @@ proc add*(node: UiNode, child: UiNode) =
   if child.kind == UiWindow:
     return
   child.parent = node
+  child.window = node.window
   node.children.add(child)
 
 proc add_delegate(node: UiNode, index: int) =

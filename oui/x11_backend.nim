@@ -89,7 +89,10 @@ proc native_from_xwindow(xwindow: Window): UiNative =
   nil
 
 proc expose_xwindow*(xwindow: Window) =
-  discard XClearArea(get_xdisplay(), xwindow, cint 0, cint 0, cuint 0, cuint 0, XBool(true))
+  var ev: XEvent
+  ev.theType = Expose
+  ev.xexpose.window = xwindow
+  discard XSendEvent(get_xdisplay(), xwindow, XBool(false), ExposureMask, addr ev)
   discard XFlush(get_xdisplay())
 
 proc main_x11*() =
@@ -102,10 +105,9 @@ proc main_x11*() =
     of Expose:
       var native = native_from_xwindow(event.xexpose.window)
       assert native.isNil() == false
-      native.surface = create_xcairo_surface(event.xexpose.window, native.width, native.height)
+      native.surface.xlib_surface_set_size(int32 native.width, int32 native.height)
       native.ctx = native.surface.create()
       exposecb(event.xexpose.x, event.xexpose.y, native)
-      native.surface.destroy()
       native.ctx.destroy()
     of KeyPress, KeyRelease:
       var

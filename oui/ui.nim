@@ -53,15 +53,31 @@ template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
     child.`axis` = tmp
     tmp = tmp + child.`size` + node.spacing
 
-template button*(id, inner: untyped) {.dirty.} = 
-  box:
-    color "#212121"
+var button_normal_color* = "#212121"
+var button_hover_color* = "#555555"
+var button_active_color* = "#313131"
+
+template button*(id, inner: untyped) = 
+  box id:
+    color button_normal_color
     events:
-      mouse_motion:
-        echo "Motion " & $event.x & ":" & $event.y
+      mouse_enter:
+        color button_hover_color
+        self.queue_redraw()
+      mouse_leave:
+        color button_normal_color
+        self.queue_redraw()
+      button_press:
+        color button_active_color
+        self.queue_redraw()
+      button_release:
+        color button_normal_color
+        self.queue_redraw()
+
+    inner
 
 template button*(inner: untyped) {.dirty} =
-  button node_without_id(), inner
+  node_without_id button, inner
 
 template text_box*(id, inner: untyped) {.dirty.} = 
   var
@@ -150,18 +166,24 @@ when defined(testing) and is_main_module:
   window app:
     title "Test App"
     size 600, 400
-    box:
+    button btn1:
       update:
         size 200, 200
         center parent
       events:
-        mouse_motion:
-          echo "Motion " & $event.x & ":" & $event.y
-        mouse_enter:
-          echo "Mouse entered " & $self.name
-        mouse_leave:
-          echo "Mouse left " & $self.name
-
-      color "#ff0000"
+        button_press:
+          echo $self.name & " was pressed"
+    button:
+      update:
+        size 200, 200
+        top btn1.bottom
+        left btn1.left
+      events:
+        button_press:
+          echo $self.name & " was pressed"
+      text:
+        update:
+          fill parent
+        text "Click me"
   app.show()  
   oui_main()
