@@ -18,7 +18,8 @@
   * [Canvas](#canvas)
   * [Image](#image)
   * [Layout](#layout)
-
+- [Widgets](#widgets)
+  * [StackView](#stackview)
 ## Creating widgets
 
 > P.S widgets are just UiNodes
@@ -51,7 +52,7 @@ template button*(inner: untyped) =
   node_without_id button, inner
 ```
 
-**More examples can be found in the module oui/ui**
+**More examples can be found in the module** `oui/ui.nim`
 
 Further sections can also explain whats going on above. This is just to show you
 a quick example
@@ -66,7 +67,7 @@ decl_style button:
 ..., style: ButtonStyle = button_style) = 
 ```
 
-The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used for every button that can be modified
+The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used with every button by default. You may also change any existing values 
 
 ```nim
 button_style.hover = "#ff0000"
@@ -296,9 +297,19 @@ window win:
 **Notice** how the line `size 600, 400` isn't inside an `update:`
 
 The window will not be visible until you call
+
 ```nim
 win.show()
 ```
+
+And you can manipulate the platform's window using:
+
+```nim
+win.native.move_window(1, 1)
+win.native.resize_window(100, 100)
+```
+
+**Check** the module `oui/backend.nim` to see what other things you do with a *native* window
 
 ### Box
 
@@ -309,13 +320,20 @@ box:
   color "#ff0000"
 ```
 
-The box's default color is white, so it may be invisible until you give it a different color
+The box's default color is white, so it may be invisible until given a different color
+
+And the box's `radius | opacity` can be changed using
+
+```nim
+radius 15
+opacity 0.5
+```
 
 ### Text
 
 ```nim
 text:
-  text "Text drawn pango"
+  text "Text drawn via pango"
 ```
 
 You may change both the font family and size by calling `family`
@@ -333,9 +351,11 @@ halign UiRight
 
 ### Canvas
 
-*The framework using cairo for all drawing* 
+*The framework uses cairo for all its drawing* 
 
 Heres a helpful tutorial if your unfamilar with **cairo**: https://www.cairographics.org/tutorial/
+
+Do not waste your time drawing outside the canvas's `w` or `h` because everything is clipped
 
 ```nim
 import cairo
@@ -348,6 +368,8 @@ canvas:
     ...
 ```
 
+**Remember `0, 0` is the node's top left, not its `x` and `y`** 
+
 ### Layout
 
 > TODO
@@ -355,3 +377,47 @@ canvas:
 ### Image
 
 > TODO
+
+## Widgets
+
+### StackView
+
+*Useful for creating pages*
+
+```nim
+stack_view my_page:
+  update:
+    size parent.w / 2, parent.h
+  box box1:
+    update:
+      fill parent
+    color "#ff0000"
+    visible true # node shown by default
+  box box2:
+    update:
+      fill parent
+    color "#00ff00"
+    visible false # node hidden by default
+  box box3:
+    update:
+      fill parent
+    color "#0000ff"
+    visible true # node hidden by default
+```
+
+You switch the displayed node by calling `stack_view_switch`
+
+```nim
+import animation
+
+...
+my_page.stack_view_switch(box2):
+  asyncCheck my_page.slide_node(box2, UiRight)
+```
+
+Or skip out on animating the transition with the handy `discard` statement
+
+```nim
+...(box2):
+  discard
+```

@@ -53,6 +53,14 @@ template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
     child.`axis` = tmp
     tmp = tmp + child.`size` + node.spacing
 
+template stack_view_switch*(node, target: UiNode, animate: untyped) =
+  for n in node.children:
+    if n.visible == true and n != target:
+      n.visible = false
+    if n == target:
+      n.visible = true
+      animate
+
 decl_style button: 
   normal: "#212121"
   hover: "#313113"
@@ -176,48 +184,54 @@ template combo_box*(id, inner: untyped) =
 template combo_box*(inner: untyped) =
   node_without_id text_box, inner
 
-template stack_window*(id, inner: untyped) =
+template stack_view*(id, inner: untyped) =
   layout id:
-    events:
-      key_press:
-        discard
-template stack_window*(inner: untyped) =
+    arrange_layout:
+      for node in self.children:
+        if node.visible != true:
+          continue
+        node.fill self
+template stack_view*(inner: untyped) =
   node_without_id stack_window, inner
 
 when defined(testing) and is_main_module:
   import unittest
   import model, tables, math, utils
+  import animation
+
   window app:
     title "Test App"
     size 600, 400
-    button btn1:
+    stack_view my_page:
       update:
-        size 200, 200
-        center parent
-      events:
-        button_press:
-          echo $self.name & " was pressed"
+        size parent.w / 2, parent.h
+      box box1:
+        update:
+          fill parent
+        color "#ff0000"
+        visible true # node shown by default
+      box box2:
+        update:
+          fill parent
+        color "#00ff00"
+        visible false # node hidden by default
+      box box3:
+        update:
+          fill parent
+        color "#0000ff"
+        visible true # the node hidden by default
     button:
       update:
-        size 200, 200
-        top btn1.bottom
-        left btn1.left
+        w parent.w / 2
+        top parent.top
+        bottom parent.bottom
+        right parent.right
       events:
         button_press:
-          echo $self.name & " was pressed " & $event.button
+          echo $self.name & " was pressed " & $event.button         
       text:
         update:
           fill parent
         text "Click me"
-    swipe_view:
-      update:
-        bottom btn1.top
-        top parent.top
-        left btn1.left
-        w btn1.w
-      text:
-        update:
-          fill parent
-        text "Right click to drag"
   app.show()  
   oui_main()

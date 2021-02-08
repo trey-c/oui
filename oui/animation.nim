@@ -13,40 +13,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math, os, asyncdispatch
+import times
 import types, node
+import asyncdispatch
+export asyncdispatch
 
-# Dunno whats up with nimpretty
+template animate_via_delta(cond: untyped, speed: float32 = 0.001, inner, finished: untyped) =
+  var 
+    current_time = cpuTime()
+    dt {.inject.} = 0.0
 
-template timer*(clock, interval: int, inner: untyped) = # TODO less hacky
-                                                                                                var i {.gensym.} = 0
-                                                                                                add_timer(clock, false, proc (asyncfd: AsyncFd): bool {.gcsafe.} =
-                                                                                                                                                                                                if i < interval:
-                                                                                                                                                                                                                                                                                                inner
-                                                                                                                                                                                                else:
-                                                                                                                                                                                                                                                                                                discard: # destroy timer?
-                                                                                                                                                                                                i.inc
-                                                                                                )
+  while cond:
+    var 
+      new_time = cpu_time()
+      frame_time = new_time - current_time
+    current_time = new_time
+    dt += frame_time
+    while dt >= speed:
+      dt -= speed
 
+    inner
+  finished
 
-template timer*(clock, inner: untyped) =
-                                                                                                add_timer(clock, false, proc (asyncfd: AsyncFd): bool {.gcsafe.} =
-                                                                                                                                                                                                inner
-                                                                                                )
-
-proc fade_node*(self, window, target: UiNode, direction: UiAlignment) =
-                                                                                                assert window.kind == UiWindow
-                                                                                                self.animating = true
-                                                                                                var old = target.x
-                                                                                                for i in 1..int(target.x):
-                                                                                                                                                                                                echo i
-                                                                                                                                                                                                if direction == UiRight:
-                                                                                                                                                                                                                                                                                                target.x = i.float32 + 1
-                                                                                                                                                                                                elif direction == UiLeft:
-                                                                                                                                                                                                                                                                                                target.x = i.float32 - 1
-
-                                                                                                                                                                                                target.x = i.float32
-                                                                                                                                                                                                window.queue_redraw(self, true)
-                                                                                                                                                                                                sleep(2)
-                                                                                                target.x = old
-                                                                                                self.animating = false
+proc slide_node*(node, target: UiNode, direction: UiAlignment) {.async.} =
+  node.animating = true
+  var 
+    old = target.x
+    count = 0.0
+    newx = 0.0
+  animate_via_delta newx <= self.w, 2:
+    count += 1
+    if direction == UiRight:
+      newx = dt + count * 0.05
+    elif direction == UiLeft:
+      newx = dt - count * 0.05
+    target.x = newx
+    echo newx
+    target.queue_redraw(true)
+  do:  
+    target.x = old
+    node.queue_redraw(true)
+    node.animating = false
