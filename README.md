@@ -22,7 +22,7 @@ Open source, and expressive Ui framework with near native preformance, an easy t
   * Canvas
   * Image
   * Layout
-- 10 included widgets (Aka. 1 or more UiNodes)
+- 9 included widgets (Aka. 1 or more UiNodes)
   * Button
   * Textfield
   * Combobox
@@ -30,6 +30,7 @@ Open source, and expressive Ui framework with near native preformance, an easy t
   * Column
   * ListView
   * StackView
+  * SwipeView
   * Popup
 
 ### Minimal code example

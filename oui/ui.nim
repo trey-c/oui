@@ -53,36 +53,33 @@ template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
     child.`axis` = tmp
     tmp = tmp + child.`size` + node.spacing
 
-var button_normal_color* = "#212121"
-var button_hover_color* = "#555555"
-var button_active_color* = "#313131"
-
-template button*(id, inner: untyped) = 
+decl_style button: 
+  normal: "#212121"
+  hover: "#313113"
+  active: "#555555"
+template button*(id, inner:untyped, style: ButtonStyle = button_style) = 
   box id:
-    color button_normal_color
+    color style.normal
     events:
       mouse_enter:
-        color button_hover_color
+        color style.hover
         self.queue_redraw()
       mouse_leave:
-        color button_normal_color
+        color style.normal
         self.queue_redraw()
       button_press:
-        color button_active_color
+        color style.active
         self.queue_redraw()
       button_release:
-        color button_normal_color
+        color style.hover
         self.queue_redraw()
-
     inner
-
-template button*(inner: untyped) {.dirty} =
+template button*(inner: untyped) =
   node_without_id button, inner
 
-template text_box*(id, inner: untyped) {.dirty.} = 
+template text_box*(id, inner: untyped, password: bool = false) = 
   var
     shift {.gensym.} = false
-    password {.gensym.} = false
   text id:
     halign UiRight
     color "#cccccc"
@@ -95,43 +92,73 @@ template text_box*(id, inner: untyped) {.dirty.} =
         text_box_key_press(id.text, event.key, event.ch, shift, password, focused)      
       key_release:
         text_box_key_release(event.key, event.ch)
-
-template text_box*(inner: untyped) {.dirty} =
+template text_box*(inner: untyped) =
   node_without_id text_box, inner
 
-template row*(id, inner: untyped) {.dirty.} = 
+template row*(id, inner: untyped) = 
   layout id:
     arrange_layout:
       arrange_row_or_column(y, h, id)
     inner
-
 template row*(inner: untyped) {.dirty} =
   node_without_id row, inner
 
-template column*(id, inner: untyped) {.dirty.} =
+template column*(id, inner: untyped) =
   layout id:
     arrange_layout:
       arrange_row_or_column(x, w, id)
     inner
-
-template column*(inner: untyped) {.dirty.} =
+template column*(inner: untyped) =
   node_without_id column, inner
 
-template list_window*(id, inner: untyped) {.dirty.} =
+template swipe_view*(id, inner: untyped) = 
+  var 
+    swipeing {.gensym.} = false 
+    yoffset {.gensym.} = 0
+    pos {.gensym.} = (x: 0, y: 0)
+  layout id:
+    arrange_layout:
+      for child in self.children:
+        child.x = self.x
+        child.y = self.y + float32 yoffset
+    events:
+      button_press:
+        case event.button:
+        of 5:
+          yoffset = yoffset - 5
+          self.queue_redraw()
+        of 4:
+          yoffset = yoffset + 5
+          self.queue_redraw()
+        of 1:
+          swipeing = true
+          pos.x = event.x
+          pos.y = event.y
+        else:
+          discard
+      button_release:
+        if event.button == 1:
+          swipeing = false
+      mouse_motion:
+        if swipeing:
+          yoffset = yoffset + (pos.y - event.y)
+    inner
+template swipe_view*(inner: untyped) =
+  node_without_id swipe_view, inner
+
+template list_view*(id, inner: untyped) =
   row id:
     discard
     inner
+template list_wiew*(inner: untyped) =
+  node_without_id list_view, inner
 
-template list_window*(inner: untyped) {.dirty.} =
-  node_without_id list_window, inner
-
-template popup*(id, inner: untyped) {.dirty.} =
+template popup*(id, inner: untyped) =
   window id:
     self.is_popup = true
     inner
-
-template popup*(inner: untyped) {.dirty.} =
-  popup node_without_id(), inner
+template popup*(inner: untyped) =
+  node_without_id popup, inner
 
 template combo_box*(id, inner: untyped) =
   var up {.gensym.}: UiNode
@@ -146,18 +173,15 @@ template combo_box*(id, inner: untyped) =
       button_press:
         up.show()
         up.engine.move_window(ev.xroot, ev.yroot)
-
 template combo_box*(inner: untyped) =
   node_without_id text_box, inner
 
-template stack_window*(id, inner: untyped) {.dirty.} =
+template stack_window*(id, inner: untyped) =
   layout id:
     events:
       key_press:
         discard
-        #root.queue_redraw(id, false)
-
-template stack_window*(inner: untyped) {.dirty.} =
+template stack_window*(inner: untyped) =
   node_without_id stack_window, inner
 
 when defined(testing) and is_main_module:
@@ -180,10 +204,20 @@ when defined(testing) and is_main_module:
         left btn1.left
       events:
         button_press:
-          echo $self.name & " was pressed"
+          echo $self.name & " was pressed " & $event.button
       text:
         update:
           fill parent
         text "Click me"
+    swipe_view:
+      update:
+        bottom btn1.top
+        top parent.top
+        left btn1.left
+        w btn1.w
+      text:
+        update:
+          fill parent
+        text "Right click to drag"
   app.show()  
   oui_main()

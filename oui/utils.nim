@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-import colors
+import colors, strutils
 import cairo, private/[pango, glib2]
 import types
 
@@ -76,3 +76,17 @@ proc draw_text*(ctx: ptr Context, text, family: string, color: Color, opacity,
   pango_cairo_show_layout(ctx, layout)
 
   text_vars_free()
+
+proc str_to_camel_case*(
+  str: string): string =
+  var go_up = false
+  for c in str:
+    if go_up:
+      result.add(
+          c.to_upper_ascii())
+      go_up = false
+      continue
+    if c == '_':
+      go_up = true
+    else:
+      result.add(c)

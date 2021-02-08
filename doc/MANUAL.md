@@ -2,6 +2,23 @@
 
 > WIP
 
+## Table of content
+
+- [Creating widgets](#creating-widgets)
+  * [Styling](#styling)
+- [Positioning UiNodes](#positioning-uinodes)
+  * [Centering](#centering)
+  * [Anchors](#anchors)
+  * [Rows & Columns](#rows-&-columns)
+  * [Traditional Header/Body/Footer](#traditional-headerbodyfooter-example)
+- [UiNodes](#uinodes)
+  * [Window](#window)
+  * [Box](#box)
+  * [Text](#text)
+  * [Canvas](#canvas)
+  * [Image](#image)
+  * [Layout](#layout)
+
 ## Creating widgets
 
 > P.S widgets are just UiNodes
@@ -36,7 +53,7 @@ template button*(inner: untyped) =
 
 **More examples can be found in the module oui/ui**
 
-Further sections also can explain whats going on above. This is just to show you
+Further sections can also explain whats going on above. This is just to show you
 a quick example
 
 ### Styling
@@ -265,3 +282,76 @@ box body:
 </tr>
 
 </table>
+
+## UiNodes
+
+### Window
+
+```nim
+window win:
+  title "My Window"
+  size 600, 400
+```
+
+**Notice** how the line `size 600, 400` isn't inside an `update:`
+
+The window will not be visible until you call
+```nim
+win.show()
+```
+
+### Box
+
+*The most common UiNode*
+
+```nim
+box:
+  color "#ff0000"
+```
+
+The box's default color is white, so it may be invisible until you give it a different color
+
+### Text
+
+```nim
+text:
+  text "Text drawn pango"
+```
+
+You may change both the font family and size by calling `family`
+
+```nim
+family "Sans Bold 27"
+```
+
+And also align the text with `align UiLeft | UiRight | UiTop | UiBottom | UiCenter`
+
+```nim
+valign UiBottom
+halign UiRight
+```
+
+### Canvas
+
+*The framework using cairo for all drawing* 
+
+Heres a helpful tutorial if your unfamilar with **cairo**: https://www.cairographics.org/tutorial/
+
+```nim
+import cairo
+
+canvas:
+  update:
+    fill parent
+  paint:
+    var ctx = self.surface.create()
+    ...
+```
+
+### Layout
+
+> TODO
+
+### Image
+
+> TODO
