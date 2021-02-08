@@ -1,10 +1,78 @@
-## Ocicat Ui Framework's manual
+# Ocicat Ui Framework's manual
 
 > WIP
 
-### Positioning UiNodes 
+## Creating widgets
 
-####  Centering
+> P.S widgets are just UiNodes
+
+Heres an example of a simple **button** implementation
+
+```nim 
+decl_style button: 
+  normal: "#212121"
+  hover: "#313113"
+  active: "#555555"
+template button*(id, inner: untyped, style: ButtonStyle = button_style) = 
+  box id:
+    color style.normal
+    events:
+      mouse_enter:
+        color style.hover
+        self.queue_redraw()
+      mouse_leave:
+        color style.normal
+        self.queue_redraw()
+      button_press:
+        color style.active
+        self.queue_redraw()
+      button_release:
+        color style.hover
+        self.queue_redraw()
+    inner
+template button*(inner: untyped) =
+  node_without_id button, inner
+```
+
+**More examples can be found in the module oui/ui**
+
+Further sections also can explain whats going on above. This is just to show you
+a quick example
+
+### Styling
+
+Widgets typicaly have an optional `style` paramater placed in its declaration, and shall always be the **last** parameter
+
+```nim 
+decl_style button: 
+  normal: "#212121"
+..., style: ButtonStyle = button_style) = 
+```
+
+The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used for every button that can be modified
+
+```nim
+button_style.hover = "#ff0000"
+```
+
+Or you may swap out the default style entirely on a per widget basis
+
+```nim
+var better_button_style: ButtonStyle
+better_button_style.normal = "#00ff00"
+# ...
+button btn1:
+  update:
+    size 100, 50
+button btn2, better_button_style:
+  update:
+    size 100, 50
+    left btn1.right
+```
+
+## Positioning UiNodes 
+
+###  Centering
 
 <table>
 
@@ -47,7 +115,7 @@ hcenter parent
 
 </table>
 
-#### Anchors
+### Anchors
 
 <table>
 
@@ -124,7 +192,7 @@ box b3:
 </table>
 
 
-#### Rows & Columns
+### Rows & Columns
 
 <table>
 
@@ -163,7 +231,7 @@ column:
 </table>
 
 
-#### Traditional Header/Body/Footer example
+### Traditional Header/Body/Footer example
 
 <table>
 
