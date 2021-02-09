@@ -2,9 +2,10 @@
 
 > WIP
 
-## Table of content
+## Table of contents
 
 - [Creating widgets](#creating-widgets)
+  * [Declaring](#declaring)
   * [Styling](#styling)
 - [Positioning UiNodes](#positioning-uinodes)
   * [Centering](#centering)
@@ -20,9 +21,10 @@
   * [Layout](#layout)
 - [Widgets](#widgets)
   * [StackView](#stackview)
+
 ## Creating widgets
 
-> P.S widgets are just UiNodes
+> P.S widgets are just complicated UiNodes
 
 Heres an example of a simple **button** implementation
 
@@ -31,49 +33,95 @@ decl_style button:
   normal: "#212121"
   hover: "#313113"
   active: "#555555"
+decl_widget button, box:
+  style: ButtonStyle = button_style
+do: 
+  color style.normal
+  events:
+    mouse_enter:
+      color style.hover
+      self.queue_redraw()
+    mouse_leave:
+      color style.normal
+      self.queue_redraw()
+    button_press:
+      color style.active
+      self.queue_redraw()
+    button_release:
+      color style.hover
+      self.queue_redraw()
+```
+
+**More examples can be found in the module** `oui/ui.nim`
+
+Further sections will hopefully explain to you whats going on above; this is just a quick example
+
+### Declaring
+
+Widgets use a convience macro called `decl_widget` that defines 2 template declarations
+
+```nim
+...
+decl_widget button, box:
+  style: ButtonStyle = button_style
+do:
+  ...
+```
+
+Which expands to
+
+```nim
 template button*(id, inner: untyped, style: ButtonStyle = button_style) = 
   box id:
-    color style.normal
-    events:
-      mouse_enter:
-        color style.hover
-        self.queue_redraw()
-      mouse_leave:
-        color style.normal
-        self.queue_redraw()
-      button_press:
-        color style.active
-        self.queue_redraw()
-      button_release:
-        color style.hover
-        self.queue_redraw()
+    ...
     inner
 template button*(inner: untyped) =
   node_without_id button, inner
 ```
 
-**More examples can be found in the module** `oui/ui.nim`
+Widgets can have multiple or even zero *bonus* paramaters (not the `id` and `inner` params)
 
-Further sections can also explain whats going on above. This is just to show you
-a quick example
+Two examples would be a **Textbox**, and **ListView**
+
+```nim
+...
+decl_widget textbox, box:
+  password: bool = false
+  style: TextboxStyle = textbox_style
+do:
+  ...
+```
+
+```nim
+...
+decl_widget list_view, row:
+  discard
+do:
+  ...
+```
+
 
 ### Styling
 
-Widgets typicaly have an optional `style` paramater placed in its declaration, and shall always be the **last** parameter
+Widgets typically have an optional `style` paramater placed in its declaration, which should always be the **last** parameter
 
 ```nim 
 decl_style button: 
   normal: "#212121"
-..., style: ButtonStyle = button_style) = 
+  hover: "#313113"
+  active: "#555555"
+... 
+  style: ButtonStyle = button_style
+do: 
+  ...
 ```
 
-The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used with every button by default. You may also change any existing values 
-
+The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used with every button by default. Values are obviously changable
 ```nim
 button_style.hover = "#ff0000"
 ```
 
-Or you may swap out the default style entirely on a per widget basis
+Or you may swap out the default style entirely on a per-widget basis
 
 ```nim
 var better_button_style: ButtonStyle
@@ -389,26 +437,20 @@ stack_view my_page:
   update:
     size parent.w / 2, parent.h
   box box1:
-    update:
-      fill parent
     color "#ff0000"
     visible true # node shown by default
   box box2:
-    update:
-      fill parent
     color "#00ff00"
     visible false # node hidden by default
   box box3:
-    update:
-      fill parent
     color "#0000ff"
-    visible true # node hidden by default
+    visible false # node hidden by default
 ```
 
 You switch the displayed node by calling `stack_view_switch`
 
 ```nim
-import animation
+import oui/animation
 
 ...
 my_page.stack_view_switch(box2):

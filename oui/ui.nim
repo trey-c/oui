@@ -65,25 +65,23 @@ decl_style button:
   normal: "#212121"
   hover: "#313113"
   active: "#555555"
-template button*(id, inner:untyped, style: ButtonStyle = button_style) = 
-  box id:
-    color style.normal
-    events:
-      mouse_enter:
-        color style.hover
-        self.queue_redraw()
-      mouse_leave:
-        color style.normal
-        self.queue_redraw()
-      button_press:
-        color style.active
-        self.queue_redraw()
-      button_release:
-        color style.hover
-        self.queue_redraw()
-    inner
-template button*(inner: untyped) =
-  node_without_id button, inner
+decl_widget button, box:
+  style: ButtonStyle = button_style
+do:
+  color style.normal
+  events:
+    mouse_enter:
+      color style.hover
+      self.queue_redraw()
+    mouse_leave:
+      color style.normal
+      self.queue_redraw()
+    button_press:
+      color style.active
+      self.queue_redraw()
+    button_release:
+      color style.hover
+      self.queue_redraw()
 
 template text_box*(id, inner: untyped, password: bool = false) = 
   var
@@ -192,7 +190,7 @@ template stack_view*(id, inner: untyped) =
           continue
         node.fill self
 template stack_view*(inner: untyped) =
-  node_without_id stack_window, inner
+  node_without_id stack_view, inner
 
 when defined(testing) and is_main_module:
   import unittest

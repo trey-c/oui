@@ -84,6 +84,23 @@ type
 var $3* = ($4)
   """ % [type_name.capitalize_ascii.str_to_camel_case & "Style", type_str, type_name & "_style", var_str])
 
+macro decl_widget*(name, base, params, inner: untyped) =
+  var params_list: seq[string] = @[]
+  assert params.kind == nnkStmtList
+  for p in params:
+    params_list.add((p.repr))  
+  var
+    params_str = ""
+  for param in params_list:
+    params_str.add ", " & param
+
+  var cmd = nnkCommand.new_tree(base, ident("id"), nnkStmtList.new_tree(inner))
+  result = parse_stmt("""
+template $1*(id, inner: untyped$2) {.dirty} = $3 
+  inner
+template $1*(inner: untyped) {.dirty} = node_without_id $1, inner
+  """ % [name.str_val, params_str, cmd.repr])
+
 decl_ui_node window, UiWindow
 decl_ui_node box, UiBox
 decl_ui_node text, UiText
