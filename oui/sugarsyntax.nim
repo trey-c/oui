@@ -88,12 +88,15 @@ macro decl_widget*(name, base, params, inner: untyped) =
   var params_list: seq[string] = @[]
   assert params.kind == nnkStmtList
   for p in params:
-    params_list.add((p.repr))  
+    if p.kind == nnkDiscardStmt:
+      continue
+    var pfixed = p.repr
+    pfixed.remove_prefix("var ")
+    params_list.add((pfixed))  
   var
     params_str = ""
   for param in params_list:
     params_str.add ", " & param
-
   var cmd = nnkCommand.new_tree(base, ident("id"), nnkStmtList.new_tree(inner))
   result = parse_stmt("""
 template $1*(id, inner: untyped$2) {.dirty} = $3 
@@ -106,6 +109,7 @@ decl_ui_node box, UiBox
 decl_ui_node text, UiText
 decl_ui_node canvas, UiCanvas
 decl_ui_node layout, UiLayout
+decl_ui_node image, UiImage
 
 template model*(m: UiModel) =
   node_self().set_model m
@@ -229,8 +233,8 @@ template center*(target: UiNode) =
 template title*(str: string) =
   self.title = str
 
-template text*(str: string) =
-  self.text = str
+template str*(text: string) =
+  self.str = text
 
 template family*(str: string) =
   self.family = str
@@ -246,6 +250,9 @@ template radius*(r: float32) =
 
 template spacing*(s: float32) =
   self.spacing = s
+
+template src*(s: string) =
+  self.src = s
 
 template update*(inner: untyped) =
   self.update_attributes.add proc(s, p: UiNode) {.closure.} =
@@ -344,8 +351,10 @@ when defined(testing) and is_main_module:
         valign UiBottom
         halign UiRight
 
-        text "something else"
+        str "something else"
         family "something else x3"
         visible true
       window:
         title "something"
+      image:
+        src "text.png"

@@ -42,7 +42,7 @@ proc set_right*(node: UiNode, right: UiAnchor) =
   if node.left_anchored:
     node.w = (float32 right) - node.x
   else:
-    node.x = (float32 right) - node.w
+    node.x = (float32 right) - node.w 
 
 proc right*(node: UiNode): UiAnchor =
   UiAnchor(node.x + node.w)
@@ -56,8 +56,11 @@ proc set_bottom*(node: UiNode, bottom: UiAnchor) =
 proc bottom*(node: UiNode): UiAnchor =
   UIAnchor(node.y + node.h)
 
-proc name*(node: UiNode): string =
-  $node.kind & " " & node.id
+proc name*(node: UiNode, detailed: bool = false): string =
+  result = node.id & " " & $node.kind 
+  if detailed:
+    result.add " | (x: " & $node.x & ", " & "y: " & 
+      $node.y & ", w: " & $node.w & ", h: " & $node.h & ")" 
 
 proc trigger_update_attributes*(node: UiNode) =
   ## Calls `update_attributes` for `node`, followed by
@@ -87,31 +90,43 @@ proc axis_alignment(node: UiNode, inkw, inkh: float32): tuple[x, y: float32] =
   of UiBottom, UiLeft:
     result.y = node.h - inkh - padding
 
-proc clip_with_children(node: UiNode, ctx: ptr Context) =
-  for child in node.children:
-    if child.need_redraw == false:
-      ctx.rectangle(child)
-      ctx.clip()
+proc force_children_to_redraw(node: UiNode) =
+  for n in node.children:
+    if n.force_redraw == true:
+      continue
+    n.force_redraw = true
+    n.force_children_to_redraw()
 
 proc draw_children(node: UiNode, ctx: ptr Context) =
   for child in node.children:
-    if child.need_redraw == false:
-      continue
     ctx.save()
     child.draw()
     ctx.set_source(child.surface, float64 child.x - node.x, float64 child.y - node.y)
     ctx.paint()
-    child.surface.destroy()
-    child.need_redraw = false
     ctx.restore()
 
+proc speed_up_drawing(node: UiNode): bool = 
+  if node.w == node.oldw and node.h == node.oldh and node.force_redraw == false:
+    if node.surface != nil:
+      node.need_redraw = false
+      var ctx = node.surface.create()
+      node.draw_children(ctx)
+      ctx.destroy()
+      return true
+  elif node.w != node.oldw and node.h != node.oldh and node.force_redraw == true:
+      node.force_children_to_redraw()
+  node.oldw = node.w
+  node.oldh = node.h
+  false
+
 proc draw(node: UiNode) =
-  if node.visible == false:
+  if node.speed_up_drawing():
     return
+  echo "drawing " & $node.name(true)
 
   node.surface = image_surface_create(FormatArgb32, int32 node.w, int32 node.h)
   var ctx = node.surface.create()
-  #node.clip_with_children(ctx) # TODO: Borked but not a big deal?
+  ctx.save()
   case node.kind:
     of UiWindow:
       ctx.set_source_rgba(1, 1, 1, 0)
@@ -122,31 +137,30 @@ proc draw(node: UiNode) =
           node.w, node.h, node.radius)
     of UiText:
       var
-        pixels = text_pixel_size(ctx, node.text, node.family)
+        pixels = text_pixel_size(ctx, node.str, node.family)
         align = node.axis_alignment(pixels.w, pixels.h)
-      draw_text(ctx, node.text, node.family, node.color, node.opacity, align.x, align.y)
+      draw_text(ctx, node.str, node.family, node.color, node.opacity, align.x, align.y)
     of UiCanvas:
       if node.paint.isNil() == false:
         ctx.save()
         node.paint(ctx)
         ctx.restore()
-    of UiLayout:
-      discard
+    of UiImage:
+      draw_png(ctx, node.src, node.w, node.h)
     else:
       discard
-  
+  ctx.restore()
   node.draw_children(ctx)
   for draw_post in node.draw_post:
     if draw_post.isNil() == false:
       draw_post()
   ctx.destroy()
+  node.need_redraw = false
+  node.force_redraw = false
 
 proc contains*(node: UiNode, x, y: float32): bool =
-  if node.x < x and x < (node.x + node.w) and
-     node.y < y and y < (node.y + node.h):
-    true
-  else:
-    false
+  node.x < x and x < (node.x + node.w ) and 
+    y > node.y and y < (node.y + node.h)
 
 proc request_focus*(node, target: UiNode) =
   assert node.kind == UiWindow
@@ -156,17 +170,22 @@ proc request_focus*(node, target: UiNode) =
   target.has_focus = true
   echo target.name & " now has focus"
 
-proc needs_redraw*(node: UiNode) =
+proc needs_redraw*(node: UiNode, from_parent: bool = false) =
   ## Marks the node and all it's children for a redraw. note: does not
   ## actually redraw right away; use queue_redraw instead
   node.need_redraw = true
-  for n in node.children:
-    needs_redraw(n)
+  if from_parent == false:
+    for n in node.children:
+      needs_redraw(n)
+  if node.parent != nil:
+    node.parent.needs_redraw(true)
 
 proc queue_redraw*(target: UiNode = nil, update: bool = true) =
   if update:
     target.trigger_update_attributes()
+  target.force_redraw = true
   if target.kind != UiWindow:
+    target.force_children_to_redraw()
     target.needs_redraw()
   target.window.native.expose()
 
@@ -177,30 +196,23 @@ proc resize*(node: UiNode, w, h: float32) =
     node.queue_redraw()
 
 proc handle_event*(window, node: UiNode, ev: var UiEvent) =
-  echo node.name()
   for on_ev in node.on_event:
     on_ev(node, node.parent, ev)
   for n in node.children:
     if n.visible == false or n.animating:
       continue
-    if n.contains(float32 ev.x, float32 ev.y) or n.has_focus:
+    if n.contains(float32(ev.x), float32(ev.y)) or n.has_focus:
       if ev.event_mod == UiEventPress and ev.button == 1:
         if n.wants_focus and n.has_focus == false:
           window.request_focus(n)
-  
+
       if n.hovered == false:
         n.hovered = true
         var tmp = ev.event_mod
         ev.event_mod = UiEventEnter
         window.handle_event(n, ev)
         ev.event_mod = tmp
-      var oldx = ev.x
-      var oldy = ev.y
-      ev.x = int ev.x - int n.x
-      ev.y = int ev.y - int n.y
       window.handle_event(n, ev) 
-      ev.x = oldx
-      ev.y = oldy
     else:
       if n.hovered:
         n.hovered = false
@@ -220,6 +232,7 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     clip: false,
     animating: false,
     need_redraw: false,
+    force_redraw: false,
     update_attributes: @[],
     on_event: @[],
     draw_post: @[],
@@ -230,7 +243,7 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     opacity: 1f,
     left_anchored: false,
     top_anchored: false)
-
+   
   if result.kind == UiWindow:
     result.window = result
     result.title = id
@@ -246,15 +259,14 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
         window.needs_redraw()
         window.resize(float32 ev.w, float32 ev.h)
       elif ev.event_mod == UiEventExpose:
-        window.need_redraw = true
+        window.needs_redraw()
         window.draw()
-        window.native.ctx.set_source(window.surface, 0f, 0f)
-        window.native.ctx.paint()
-        window.surface.destroy()
+        if window.surface != nil:
+          window.native.ctx.set_source(window.surface, 0f, 0f)
+          window.native.ctx.paint()
         window.need_redraw = false
       else:
-        window.handle_event(window, tmp)
-
+       window.handle_event(window, tmp)
   if result.kind == UiText:
     result.wants_focus = false
     result.valign = UiCenter

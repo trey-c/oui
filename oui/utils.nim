@@ -33,6 +33,16 @@ proc set_source_color*(ctx: ptr Context, color: Color, opacity: range[0f..1f] = 
                       rgb.b / 256,
                       opacity)
 
+proc draw_png*(ctx: ptr Context, src: string, w, h: float) =
+  var 
+    img = image_surface_create_from_png(src)
+    imgw = float img.get_width()
+    imgh = float img.get_height()
+  ctx.scale(w / imgw, h / imgh)
+  ctx.set_source(img, 0, 0)
+  ctx.paint()
+  img.destroy()
+
 proc draw_rounded_rectangle*(ctx: ptr Context, color: Color, opacity, x, y, w,
     h, rad: float32) =
   ctx.set_source_color(color, opacity)

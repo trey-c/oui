@@ -83,7 +83,7 @@ type
     margin_top*, margin_left*, margin_bottom*, margin_right*: float32
     model*: UiModel
     clip*, visible*, hovered*, has_focus*, wants_focus*, animating*,
-        need_redraw*: bool
+        need_redraw*, force_redraw*: bool
     update_attributes*: seq[UpdateAttributesCb]
     on_event*: seq[OnEventCb]
     draw_post*: seq[DrawPostCb]
@@ -91,6 +91,7 @@ type
     color*, foreground*: colors.Color
     opacity*: range[0f..1f]
     left_anchored*, top_anchored*: bool
+    oldw*, oldh*: float32
     case kind*: UiNodeKind
     of UiBox:
       radius*: float32
@@ -102,7 +103,7 @@ type
       focused_node*: UiNode
       native*: UiNative
     of UiText:
-      text*, family*: string
+      str*, family*: string
       valign*, halign*: UiAlignment
     of UiCanvas:
       paint*: proc(ctx: ptr cairo.Context)
@@ -112,7 +113,7 @@ type
       delegate*: proc(model: UiModel, index: int): UiNode
       arrange_layout*: proc()
     of UiImage:
-      src: string
+      src*: string
 
 var
   oui_framecount* = 0

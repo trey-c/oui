@@ -25,8 +25,8 @@ template demo_sidebar() =
     update:
       w 175
       h app.h
-    text logo:
-      text "Ocicat\nUi\nFramework"
+    text:
+      str "Ocicat\nUi\nFramework"
       family "Sans Bold 14"
       color content_color
       halign UiRight
@@ -43,17 +43,38 @@ template demo_content() =
     update:
       left sidebar.right
       right app.right
-      h app.h  
+      h app.h
+    box mrbox:
+      color "#555444"
+      var count = 0
+      update:
+        w 200
+        h 50
+        right parent.right
+      text txt:
+        update:
+          echo "UPDATED"
+          fill parent
+          str $count
+      events:
+        button_press:
+          count.inc
+          echo "Button with counter clicked"
+          mrbox.queue_redraw()
+    box:
+      color "#00ff00"
+      update:
+        top mrbox.bottom
+        bottom content.bottom
+        left parent.left
+        w parent.w
 
-proc main() =
-  window app:
-    title "Demo"
-    w 600
-    h 400
-
-    demo_sidebar()
-    demo_content()
+window app:
+  title "Demo"
+  w 600
+  h 400
+  demo_sidebar()
+  demo_content()
  
-  app.show()
-  oui_main()
-main()
+app.show()
+oui_main()

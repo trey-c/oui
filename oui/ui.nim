@@ -42,10 +42,6 @@ proc text_box_key_press*(text: var string, key: int, ch: string, shift: var bool
           text.add(ch)
     #root.queue_redraw(self)
 
-proc text_box_key_release*(key: int, shift: var bool) = 
-  if key == 65505:
-    shift = false
-
 template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
   var tmp = 0.0
   echo node.children.len
@@ -83,114 +79,105 @@ do:
       color style.hover
       self.queue_redraw()
 
-template text_box*(id, inner: untyped, password: bool = false) = 
+decl_widget textbox, layout:
+  var text: var string
+  password: bool = false
+do:
   var
     shift {.gensym.} = false
-  text id:
+  color "#252525"
+  text:
     halign UiRight
     color "#cccccc"
-    box:
-      color "#252525"
-      update:
-        fill parent
-    events:
-      key_press:
-        text_box_key_press(id.text, event.key, event.ch, shift, password, focused)      
-      key_release:
-        text_box_key_release(event.key, event.ch)
-template text_box*(inner: untyped) =
-  node_without_id text_box, inner
+    update:
+      str text
+      fill parent
+  events:
+    key_press:
+      text_box_key_press(text, event.key, event.ch, shift, password, focused)
+      self.queue_redraw()
+    key_release:
+      if key == 65505:
+        shift = false
 
-template row*(id, inner: untyped) = 
-  layout id:
-    arrange_layout:
-      arrange_row_or_column(y, h, id)
-    inner
-template row*(inner: untyped) {.dirty} =
-  node_without_id row, inner
+decl_widget row, layout:
+  discard
+do:
+  arrange_layout:
+    arrange_row_or_column(y, h, id)
 
-template column*(id, inner: untyped) =
-  layout id:
-    arrange_layout:
-      arrange_row_or_column(x, w, id)
-    inner
-template column*(inner: untyped) =
-  node_without_id column, inner
+decl_widget column, layout:
+  discard
+do:
+  arrange_layout:
+    arrange_row_or_column(x, w, id)
 
-template swipe_view*(id, inner: untyped) = 
+decl_widget swipe_view, layout:
+  discard
+do:
   var 
     swipeing {.gensym.} = false 
     yoffset {.gensym.} = 0
     pos {.gensym.} = (x: 0, y: 0)
-  layout id:
-    arrange_layout:
-      for child in self.children:
-        child.x = self.x
-        child.y = self.y + float32 yoffset
-    events:
-      button_press:
-        case event.button:
-        of 5:
-          yoffset = yoffset - 5
-          self.queue_redraw()
-        of 4:
-          yoffset = yoffset + 5
-          self.queue_redraw()
-        of 1:
-          swipeing = true
-          pos.x = event.x
-          pos.y = event.y
-        else:
-          discard
-      button_release:
-        if event.button == 1:
-          swipeing = false
-      mouse_motion:
-        if swipeing:
-          yoffset = yoffset + (pos.y - event.y)
-    inner
-template swipe_view*(inner: untyped) =
-  node_without_id swipe_view, inner
+  arrange_layout:
+    for child in self.children:
+      child.x = self.x
+      child.y = self.y + float32 yoffset
+  events:
+    button_press:
+      case event.button:
+      of 5:
+        yoffset = yoffset - 5
+        self.queue_redraw()
+      of 4:
+        yoffset = yoffset + 5
+        self.queue_redraw()
+      of 1:
+        swipeing = true
+        pos.x = event.x
+        pos.y = event.y
+      else:
+        discard
+  button_release:
+    if event.button == 1:
+      swipeing = false
+  mouse_motion:
+    if swipeing:
+      yoffset = yoffset + (pos.y - event.y)
 
-template list_view*(id, inner: untyped) =
-  row id:
-    discard
-    inner
-template list_wiew*(inner: untyped) =
-  node_without_id list_view, inner
+decl_widget list_view, layout:
+  discard
+do:
+  discard
 
-template popup*(id, inner: untyped) =
-  window id:
-    self.is_popup = true
-    inner
-template popup*(inner: untyped) =
-  node_without_id popup, inner
+decl_widget popup, layout:
+  discard
+do:
+  self.is_popup = true
 
-template combo_box*(id, inner: untyped) =
+decl_widget combobox, textbox:
+  discard
+do:
   var up {.gensym.}: UiNode
-  text_box id:
-    popup:
-      up = self
-      size 150, 400
-      list_window list:
-        update:
-          fill parent
-    events:
-      button_press:
-        up.show()
-        up.engine.move_window(ev.xroot, ev.yroot)
-template combo_box*(inner: untyped) =
-  node_without_id text_box, inner
+  popup:
+    up = self
+    size 150, 400
+    list_view:
+      update:
+        fill parent
+  events:
+    button_press:
+      up.show()
+      up.engine.move_window(ev.xroot, ev.yroot)
 
-template stack_view*(id, inner: untyped) =
-  layout id:
-    arrange_layout:
-      for node in self.children:
-        if node.visible != true:
-          continue
-        node.fill self
-template stack_view*(inner: untyped) =
-  node_without_id stack_view, inner
+decl_widget stack_view, layout:
+  discard
+do:
+  arrange_layout:
+    for node in self.children:
+      if node.visible != true:
+        continue
+      node.fill self
 
 when defined(testing) and is_main_module:
   import unittest
@@ -230,6 +217,6 @@ when defined(testing) and is_main_module:
       text:
         update:
           fill parent
-        text "Click me"
+        str "Click me"
   app.show()  
   oui_main()

@@ -20,6 +20,7 @@
   * [Image](#image)
   * [Layout](#layout)
 - [Widgets](#widgets)
+  * [Textbox](#textbox)
   * [StackView](#stackview)
 
 ## Creating widgets
@@ -321,7 +322,7 @@ box body:
     bottom footer.top
   color "#ffffff"
   text:
-    text "Body"
+    str "Body"
     update:
       fill parent
 ```
@@ -381,7 +382,7 @@ opacity 0.5
 
 ```nim
 text:
-  text "Text drawn via pango"
+  str "Text drawn via pango"
 ```
 
 You may change both the font family and size by calling `family`
@@ -427,6 +428,28 @@ canvas:
 > TODO
 
 ## Widgets
+
+### Textbox
+
+*Useful for grabbing user input*
+
+```nim
+var email_text = ""
+textbox email:
+  update:
+    size parent.w / 2, parent.h
+  events:
+    key_press:
+      echo email_text
+```
+
+You can **hide** `email_text` with `*` via
+
+```nim
+...
+textbox email, true:
+  ...
+```
 
 ### StackView
 

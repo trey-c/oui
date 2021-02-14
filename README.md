@@ -32,6 +32,8 @@ Open source, and expressive Ui framework with near native preformance, an easy t
   * StackView
   * SwipeView
   * Popup
+- Addons that add support for
+  * MapBox `(very soon)`
 
 ### Minimal code example
 
@@ -69,6 +71,11 @@ Listed below is what certain or all **oui** modules depend on. Nimble dependenci
   * egl
   * androidndk
 
+#### Addons
+
+- oui/mapbox.nim
+  * mapbox-gl-native
+
 ### Installing/building
 
 #### Nim
@@ -82,9 +89,9 @@ www.nim-lang.org/downloads
 ```
 #### Dependencies
 
-##### Android
+##### Android or any addons
 
-You may grab the needed dependencies via ouideploy
+You may grab the needed dependencies via `ouideploy` **coming very soon**
 
 ##### Linux (Ubuntu)
 
