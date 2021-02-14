@@ -25,7 +25,7 @@
 
 ## Creating widgets
 
-> P.S widgets are just complicated UiNodes
+> P.S widgets are just complicated UiNodes that must be asigned an `id`
 
 Heres an example of a simple **button** implementation
 
@@ -59,7 +59,7 @@ Further sections will hopefully explain to you whats going on above; this is jus
 
 ### Declaring
 
-Widgets use a convience macro called `decl_widget` that defines 2 template declarations
+Widgets use a convenient macro called `decl_widget` that defines a template declaration for you
 
 ```nim
 ...
@@ -76,11 +76,9 @@ template button*(id, inner: untyped, style: ButtonStyle = button_style) =
   box id:
     ...
     inner
-template button*(inner: untyped) =
-  node_without_id button, inner
 ```
 
-Widgets can have multiple or even zero *bonus* paramaters (not the `id` and `inner` params)
+Widgets can have multiple or even zero *bonus* parameters (not the `id` and `inner` params)
 
 Two examples would be a **Textbox**, and **ListView**
 
@@ -104,7 +102,7 @@ do:
 
 ### Styling
 
-Widgets typically have an optional `style` paramater placed in its declaration, which should always be the **last** parameter
+Widgets typically have an optional `style` parameter placed in its declaration, which should always be the **last** parameter
 
 ```nim 
 decl_style button: 
@@ -117,7 +115,7 @@ do:
   ...
 ```
 
-The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used with every button by default. Values are obviously changable
+The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used with every button by default. Values are obviously changeable
 ```nim
 button_style.hover = "#ff0000"
 ```
@@ -434,21 +432,21 @@ canvas:
 *Useful for grabbing user input*
 
 ```nim
-var email_text = ""
-textbox email:
+var myemailtext = ""
+textbox email, myemailtext:
   update:
     size parent.w / 2, parent.h
   events:
     key_press:
-      echo email_text
+      echo myemailtext
 ```
 
-You can **hide** `email_text` with `*` via
+*Useful for password's or other sensitive information*
+
+You can **hide** `myemailtext` with `*` via
 
 ```nim
-...
-textbox email, true:
-  ...
+textbox email, myemail, true:
 ```
 
 ### StackView

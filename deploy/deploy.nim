@@ -25,6 +25,9 @@ proc switch_os_page(img: string, stack: UiNode) =
 when is_main_module:
   window app:
     size 400, 600
+    var myemailtext = ""
+    textbox email, myemailtext, false:
+      echo "hello"
     box header:
       color "#0000ff"
       update:
@@ -35,7 +38,7 @@ when is_main_module:
         str "Choose the platform your deploying to "
         update:
           fill parent
-    row:
+    row ttt:
       update:
         top header.bottom
         bottom parent.bottom

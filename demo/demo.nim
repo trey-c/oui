@@ -44,7 +44,7 @@ template demo_content() =
       left sidebar.right
       right app.right
       h app.h
-    box mrbox:
+    button mrbox, button_style:
       color "#555444"
       var count = 0
       update:

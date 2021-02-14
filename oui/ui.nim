@@ -79,8 +79,8 @@ do:
       color style.hover
       self.queue_redraw()
 
-decl_widget textbox, layout:
-  var text: var string
+decl_widget textbox, box:
+  var textstr: var string
   password: bool = false
 do:
   var
@@ -90,14 +90,14 @@ do:
     halign UiRight
     color "#cccccc"
     update:
-      str text
+      str textstr
       fill parent
   events:
     key_press:
-      text_box_key_press(text, event.key, event.ch, shift, password, focused)
+      text_box_key_press(textstr, event.key, event.ch, shift, password, self.has_focus)
       self.queue_redraw()
     key_release:
-      if key == 65505:
+      if event.key == 65505:
         shift = false
 
 decl_widget row, layout:
@@ -150,7 +150,7 @@ decl_widget list_view, layout:
 do:
   discard
 
-decl_widget popup, layout:
+decl_widget popup, window:
   discard
 do:
   self.is_popup = true

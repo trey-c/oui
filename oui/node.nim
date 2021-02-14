@@ -122,8 +122,12 @@ proc speed_up_drawing(node: UiNode): bool =
 proc draw(node: UiNode) =
   if node.speed_up_drawing():
     return
-  echo "drawing " & $node.name(true)
+  
+  if node.surface != nil:
+    node.surface.destroy()
+    node.surface = nil
 
+  echo "drawing " & $node.name(true)
   node.surface = image_surface_create(FormatArgb32, int32 node.w, int32 node.h)
   var ctx = node.surface.create()
   ctx.save()

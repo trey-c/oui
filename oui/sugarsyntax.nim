@@ -95,13 +95,17 @@ macro decl_widget*(name, base, params, inner: untyped) =
     params_list.add((pfixed))  
   var
     params_str = ""
+    i = 0
   for param in params_list:
-    params_str.add ", " & param
+    if i == 0:
+      params_str.add ", " & param
+    else:
+      params_str.add ", " & param
+    i.inc
   var cmd = nnkCommand.new_tree(base, ident("id"), nnkStmtList.new_tree(inner))
   result = parse_stmt("""
-template $1*(id, inner: untyped$2) {.dirty} = $3 
+template $1*(id: untyped$2, inner: untyped) {.dirty} = $3 
   inner
-template $1*(inner: untyped) {.dirty} = node_without_id $1, inner
   """ % [name.str_val, params_str, cmd.repr])
 
 decl_ui_node window, UiWindow
