@@ -3,10 +3,7 @@
 > WIP
 
 ## Table of contents
-
-- [Creating widgets](#creating-widgets)
-  * [Declaring](#declaring)
-  * [Styling](#styling)
+- [Fundamentals](#fundamentals)
 - [Positioning UiNodes](#positioning-uinodes)
   * [Centering](#centering)
   * [Anchors](#anchors)
@@ -22,117 +19,113 @@
 - [Widgets](#widgets)
   * [Textbox](#textbox)
   * [StackView](#stackview)
+- [Creating widgets](#creating-widgets)
+  * [Declaring](#declaring)
+  * [Styling](#styling)
 
-## Creating widgets
+## Fundamentals
 
-> P.S widgets are just complicated UiNodes that must be asigned an `id`
+All **`UiNode's** use the following shortcuts to assaign/get attributes
 
-Heres an example of a simple **button** implementation
+- `w`
+- `h`
+- `size`
+- `top`
+- `left`
+- `bottom`
+- `right`
+- `margin_top`
+- `margin_left`
+- `margin_bottom`
+- `margin_right`
+- `color`
+- `update`
+- `events`
+- `name`
 
-```nim 
-decl_style button: 
-  normal: "#212121"
-  hover: "#313113"
-  active: "#555555"
-decl_widget button, box:
-  style: ButtonStyle = button_style
-do: 
-  color style.normal
-  events:
-    mouse_enter:
-      color style.hover
-      self.queue_redraw()
-    mouse_leave:
-      color style.normal
-      self.queue_redraw()
-    button_press:
-      color style.active
-      self.queue_redraw()
-    button_release:
-      color style.hover
-      self.queue_redraw()
-```
+- and two very handy variables
+  * `self`
+  * `parent`
 
-**More examples can be found in the module** `oui/ui.nim`
-
-Further sections will hopefully explain to you whats going on above; this is just a quick example
-
-### Declaring
-
-Widgets use a convenient macro called `decl_widget` that defines a template declaration for you
+Nodes are used like so
 
 ```nim
-...
-decl_widget button, box:
-  style: ButtonStyle = button_style
-do:
-  ...
+box:
+  w 20
+  h parent.h
 ```
 
-Which expands to
+**Notice how if you resize the parent; the `box`'s `h` doesn't reflect the new parent's `h`. Fix that with an `update:`**
 
 ```nim
-template button*(id, inner: untyped, style: ButtonStyle = button_style) = 
-  box id:
-    ...
-    inner
-```
-
-Widgets can have multiple or even zero *bonus* parameters (not the `id` and `inner` params)
-
-Two examples would be a **Textbox**, and **ListView**
-
-```nim
-...
-decl_widget textbox, box:
-  password: bool = false
-  style: TextboxStyle = textbox_style
-do:
-  ...
-```
-
-```nim
-...
-decl_widget list_view, row:
-  discard
-do:
-  ...
-```
-
-
-### Styling
-
-Widgets typically have an optional `style` parameter placed in its declaration, which should always be the **last** parameter
-
-```nim 
-decl_style button: 
-  normal: "#212121"
-  hover: "#313113"
-  active: "#555555"
-... 
-  style: ButtonStyle = button_style
-do: 
-  ...
-```
-
-The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used with every button by default. Values are obviously changeable
-```nim
-button_style.hover = "#ff0000"
-```
-
-Or you may swap out the default style entirely on a per-widget basis
-
-```nim
-var better_button_style: ButtonStyle
-better_button_style.normal = "#00ff00"
-# ...
-button btn1:
+box:
+  color "#ff0000"
+  echo("Prints only once for " & node.name() & " on its declaration")
   update:
-    size 100, 50
-button btn2, better_button_style:
+    size 20, parent.h
+```
+
+As the `update:` name suggests, it gets called everytime there's an event or if something useful happens. You can 
+alse use `self.trigger_update_attributes()` to immediately trigger it manually
+
+Nodes and widgets also can have `id`'s, but for widgets; it's a must
+
+```nim
+box mycoolbox:
+  echo("Prints only once for " & self.name() & " on its declaration")
   update:
-    size 100, 50
-    left btn1.right
+    size 20, parent.h
+box:
+  update:
+    left mycoolbox.right
+```
+
+**P.S**
+
+You cannot use the node's `id` within its body
+
+```nim
+box myothercoolbox:
+  update:
+    w myothercoolbox.w / 2
+```
+
+You'll get a super **cool**, and not at all helpful `undeclared identifier` message even though it **should** be declared intuitively.
+
+Get around that by doing this
+
+```nim
+  w self.w / 2
+```
+
+Or
+
+```nim
+  w parent.w / 2
+```
+
+Or in more rare cases
+
+```nim
+  var mystupidbox: UiNode
+  box: # Don't know the id or have no access to the identifier for whatever reason. Thus you must take the fun path
+    mystupidbox = self
+    update:
+      ...
+  ...
+  box box123:
+    update:
+      top mystupidbox.bottom
+```
+
+This works however since its not in the same body!
+
+```nim
+  box box3:
+    ... 
+  box box4: # Move this two spaces forward and you gotta do whats above
+    update:
+      bottom box3.top
 ```
 
 ## Positioning UiNodes 
@@ -483,4 +476,115 @@ Or skip out on animating the transition with the handy `discard` statement
 ```nim
 ...(box2):
   discard
+```
+
+## Creating widgets
+
+> P.S widgets are just complicated UiNodes that must be asigned an `id`
+
+Heres an example of a simple **button** implementation
+
+```nim 
+decl_style button: 
+  normal: "#212121"
+  hover: "#313113"
+  active: "#555555"
+decl_widget button, box:
+  style: ButtonStyle = button_style
+do: 
+  color style.normal
+  events:
+    mouse_enter:
+      color style.hover
+      self.queue_redraw()
+    mouse_leave:
+      color style.normal
+      self.queue_redraw()
+    button_press:
+      color style.active
+      self.queue_redraw()
+    button_release:
+      color style.hover
+      self.queue_redraw()
+```
+
+**More examples can be found in the module** `oui/ui.nim`
+
+Further sections will hopefully explain to you whats going on above; this is just a quick example
+
+### Declaring
+
+Widgets use a convenient macro called `decl_widget` that defines a template declaration for you
+
+```nim
+...
+decl_widget button, box:
+  style: ButtonStyle = button_style
+do:
+  ...
+```
+
+Which expands to
+
+```nim
+template button*(id, inner: untyped, style: ButtonStyle = button_style) = 
+  box id:
+    ...
+    inner
+```
+
+Widgets can have multiple or even zero *bonus* parameters (not the `id` and `inner` params)
+
+Two examples would be a **Textbox**, and **ListView**
+
+```nim
+...
+decl_widget textbox, box:
+  password: bool = false
+  style: TextboxStyle = textbox_style
+do:
+  ...
+```
+
+```nim
+...
+decl_widget list_view, row:
+  discard
+do:
+  ...
+```
+
+### Styling
+
+Widgets typically have an optional `style` parameter placed in its declaration, which should always be the **last** parameter
+
+```nim 
+decl_style button: 
+  normal: "#212121"
+  hover: "#313113"
+  active: "#555555"
+... 
+  style: ButtonStyle = button_style
+do: 
+  ...
+```
+
+The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used with every button by default. Values are obviously changeable
+```nim
+button_style.hover = "#ff0000"
+```
+
+Or you may swap out the default style entirely on a per-widget basis
+
+```nim
+var better_button_style: ButtonStyle
+better_button_style.normal = "#00ff00"
+# ...
+button btn1:
+  update:
+    size 100, 50
+button btn2, better_button_style:
+  update:
+    size 100, 50
+    left btn1.right
 ```

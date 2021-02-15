@@ -57,7 +57,7 @@ proc bottom*(node: UiNode): UiAnchor =
   UIAnchor(node.y + node.h)
 
 proc name*(node: UiNode, detailed: bool = false): string =
-  result = node.id & " " & $node.kind 
+  result = node.id & " (" & $node.kind & ")"
   if detailed:
     result.add " | (x: " & $node.x & ", " & "y: " & 
       $node.y & ", w: " & $node.w & ", h: " & $node.h & ")" 
@@ -127,7 +127,7 @@ proc draw(node: UiNode) =
     node.surface.destroy()
     node.surface = nil
 
-  echo "drawing " & $node.name(true)
+  ouidebug "drawing " & $node.name(true)
   node.surface = image_surface_create(FormatArgb32, int32 node.w, int32 node.h)
   var ctx = node.surface.create()
   ctx.save()
@@ -150,7 +150,7 @@ proc draw(node: UiNode) =
         node.paint(ctx)
         ctx.restore()
     of UiImage:
-      draw_png(ctx, node.src, node.w, node.h)
+      draw_png(ctx, node.src, 0, 0, node.w, node.h)
     else:
       discard
   ctx.restore()
@@ -172,7 +172,7 @@ proc request_focus*(node, target: UiNode) =
     node.focused_node.has_focus = false
   node.focused_node = target
   target.has_focus = true
-  echo target.name & " now has focus"
+  ouidebug "focus given to " & target.name
 
 proc needs_redraw*(node: UiNode, from_parent: bool = false) =
   ## Marks the node and all it's children for a redraw. note: does not
@@ -313,8 +313,9 @@ proc set_model*(node: UiNode, model: UiModel) =
   node.model = model
   node.model.table_added = proc(index: int) =
     node.add_delegate(index)
+    ouidebug "table row added at index " & $index
   node.model.table_removed = proc(index: int) =
-    echo "table_removed " & $index
+    ouidebug "table row removed at index " & $index
 
 proc show*(node: UiNode) =
   if node.kind == UiWindow:
@@ -339,7 +340,6 @@ when defined(testing) and is_main_module:
 
       box1.w = 100
       box1.h = 100
-      echo box1.h
       box2.fill(box1)
 
       test "contains":

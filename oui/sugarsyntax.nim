@@ -92,21 +92,24 @@ macro decl_widget*(name, base, params, inner: untyped) =
       continue
     var pfixed = p.repr
     pfixed.remove_prefix("var ")
-    params_list.add((pfixed))  
+    params_list.add((pfixed))
   var
     params_str = ""
-    i = 0
+    params_call_str = ""
   for param in params_list:
-    if i == 0:
-      params_str.add ", " & param
-    else:
-      params_str.add ", " & param
-    i.inc
+    params_str.add ", " & param
+    var fparam = param
+    fparam.delete(param.find(":"), param.len - 1)
+    params_call_str.add ", " & fparam
+  
   var cmd = nnkCommand.new_tree(base, ident("id"), nnkStmtList.new_tree(inner))
-  result = parse_stmt("""
-template $1*(id: untyped$2, inner: untyped) {.dirty} = $3 
+  var strstmt = """
+template $1*(id, inner: untyped$2) {.dirty.} = $3 
   inner
-  """ % [name.str_val, params_str, cmd.repr])
+template $1*(id: untyped$2, inner: untyped) {.dirty.} = $1 id, inner$4
+  """ % [name.str_val, params_str, cmd.repr, params_call_str]
+  echo strstmt
+  result = parse_stmt(strstmt)
 
 decl_ui_node window, UiWindow
 decl_ui_node box, UiBox

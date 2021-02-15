@@ -76,7 +76,7 @@ type
 
   UiNode* = ref object
     parent*, window*: UiNode
-    surface*: cairo.PSurface
+    surface*: ptr cairo.Surface
     children*: seq[UiNode]
     id*: string
     x*, y*, w*, h*: float32

@@ -33,13 +33,13 @@ proc set_source_color*(ctx: ptr Context, color: Color, opacity: range[0f..1f] = 
                       rgb.b / 256,
                       opacity)
 
-proc draw_png*(ctx: ptr Context, src: string, w, h: float) =
+proc draw_png*(ctx: ptr Context, src: string, x, y, w, h: float) =
   var 
     img = image_surface_create_from_png(src)
     imgw = float img.get_width()
     imgh = float img.get_height()
   ctx.scale(w / imgw, h / imgh)
-  ctx.set_source(img, 0, 0)
+  ctx.set_source(img, x, y)
   ctx.paint()
   img.destroy()
 
@@ -100,3 +100,8 @@ proc str_to_camel_case*(
       go_up = true
     else:
       result.add(c)
+
+template ouidebug*[T](t: T) =
+  ## Wraps `echo` to remove the statement when -d:ouidebug isn't defined
+  when defined ouidebug: 
+    echo t

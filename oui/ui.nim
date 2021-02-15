@@ -44,7 +44,6 @@ proc text_box_key_press*(text: var string, key: int, ch: string, shift: var bool
 
 template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
   var tmp = 0.0
-  echo node.children.len
   for child in node.children:
     child.`axis` = tmp
     tmp = tmp + child.`size` + node.spacing
@@ -205,7 +204,7 @@ when defined(testing) and is_main_module:
           fill parent
         color "#0000ff"
         visible true # the node hidden by default
-    button:
+    button btn1:
       update:
         w parent.w / 2
         top parent.top
