@@ -277,10 +277,10 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     result.halign = UiCenter
 
 proc fill*(node, target: UiNode) =
-  node.x = target.x
-  node.y = target.y
-  node.w = target.w
-  node.h = target.h
+  node.set_left target.left
+  node.set_top target.top
+  node.set_bottom target.bottom
+  node.set_right target.right
 
 proc vcenter*(node, target: UiNode) =
   node.y = target.y + target.h / 2 - node.h / 2

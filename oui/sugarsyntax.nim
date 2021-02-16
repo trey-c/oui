@@ -29,17 +29,17 @@ macro node_next_parent(id: untyped, delegate: bool = false) =
   var current_parent = if parents.len > 0: parents[parents.high] else: new_nil_lit()
   if current_parent.kind != nnkNilLit and delegate.bool_val == false:
     result = quote do:
-      `current_parent`.add(`id`)
+      `current_parent`.add(`id`) 
   parents.add(id)
 
 template node*(id: untyped, kind: UiNodeKind, inner: untyped,
     delegate: bool = false) =
   expandMacros:
-    var id {.inject.} = node_init(id, kind)
+    var `id` {.inject.} = node_init(id, kind)
+    parent = self
     self  = id
     node_next_parent(id, delegate)
-    parent = prev_parent
-    prev_parent = id
+    parent = id.parent
     inner
   static:
     if parents.len > 0:
@@ -104,9 +104,9 @@ macro decl_widget*(name, base, params, inner: untyped) =
   
   var cmd = nnkCommand.new_tree(base, ident("id"), nnkStmtList.new_tree(inner))
   var strstmt = """
-template $1*(id, inner: untyped$2) {.dirty.} = $3 
+template $1*(id, inner: untyped$2) = $3 
   inner
-template $1*(id: untyped$2, inner: untyped) {.dirty.} = $1 id, inner$4
+template $1*(id: untyped$2, inner: untyped) = $1 id, inner$4
   """ % [name.str_val, params_str, cmd.repr, params_call_str]
   echo strstmt
   result = parse_stmt(strstmt)
@@ -317,7 +317,10 @@ when defined(testing) and is_main_module:
           box box4:
             discard
         box box5:
-          discard
+          echo "NAME"
+          echo parent.name()
+          echo box5.parent.name()
+
         box box6:
           box box7:
             discard
