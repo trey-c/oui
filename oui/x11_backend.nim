@@ -116,7 +116,7 @@ proc main_x11*() =
         kmod = if event.theType == KeyPress: UiEventPress else: UiEventRelease
       assert native.isNil() == false
  
-      keycb(kmod, event.xkey.x, event.xkey.y, -1, $(XKeysymToString(key)), native)
+      keycb(kmod, event.xkey.x, event.xkey.y, int event.xkey.keycode, $(XKeysymToString(key)), native)
     of ButtonPress, ButtonRelease:
       var native = native_from_xwindow(event.xbutton.window)
       assert native.isNil() == false

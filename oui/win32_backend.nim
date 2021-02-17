@@ -65,12 +65,12 @@ proc handle_message(hwnd: HWND, msg: UINT, wparam: WPARAM,
     native.hwnd.GetClientRect(addr r)
     resizecb(int(r.right - r.left), int(r.bottom - r.top), native)
   of WM_KEYUP, WM_KEYDOWN:
+    var key = cast[int](wparam)
+    var ch = $cast[char](wparam)
     if msg == WM_KEYDOWN:
-      keycb(UiEventPress, cast[int](GET_X_LPARAM(lparam)), cast[int](
-          GET_Y_LPARAM(lparam)), -1, "", native)
+      keycb(UiEventPress, native.trackx, native.tracky, key, $ch, native)
     elif msg == WM_KEYUP:
-      keycb(UiEventRelease, cast[int](GET_X_LPARAM(lparam)), cast[int](
-          GET_Y_LPARAM(lparam)), -1, "", native)
+      keycb(UiEventRelease,  native.trackx, native.tracky, key, $ch, native)
   of WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_MBUTTONDOWN, WM_XBUTTONDOWN,
       WM_LBUTTONUP, WM_RBUTTONUP, WM_MBUTTONUP, WM_XBUTTONUP:
     var button = 1
@@ -85,10 +85,10 @@ proc handle_message(hwnd: HWND, msg: UINT, wparam: WPARAM,
 
     if msg == WM_LBUTTONDOWN or msg == WM_RBUTTONDOWN or msg ==
         WM_MBUTTONDOWN or msg == WM_XBUTTONDOWN:
-      buttoncb(UiEventRelease, cast[int](GET_XBUTTON_WPARAM(wparam)), cast[int](
+      buttoncb(UiEventRelease, button, cast[int](
           GET_X_LPARAM(lparam)), cast[int](GET_Y_LPARAM(lparam)), -1, -1, native)
     else:
-      buttoncb(UiEventPress, cast[int](GET_XBUTTON_WPARAM(wparam)), cast[int](
+      buttoncb(UiEventPress, button, cast[int](
           GET_X_LPARAM(lparam)), cast[int](GET_Y_LPARAM(lparam)), -1, -1, native)
   of WM_PAINT:
     var
@@ -104,7 +104,9 @@ proc handle_message(hwnd: HWND, msg: UINT, wparam: WPARAM,
 
     discard EndPaint(hwnd, addr(ps))
   of WM_MOUSEMOVE:
-    motioncb(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), -1, -1, native)
+    native.trackx = cast[int](GET_X_LPARAM(lparam))
+    native.tracky = cast[int](GET_Y_LPARAM(lparam))
+    motioncb(native.trackx, native.tracky, -1, -1, native)
   else:
     result = DefWindowProc(hwnd, msg, wparam, lparam)
 

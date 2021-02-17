@@ -281,11 +281,11 @@ template events*(inner: untyped) =
     `inner`
 
 template key_press*(inner: untyped) =
-  if event.event_mod == UiEventPress:
+  if event.event_mod == UiEventPress and event.key != -1:
     `inner`
 
 template key_release*(inner: untyped) =
-  if event.event_mod == UiEventRelease:
+  if event.event_mod == UiEventRelease and event.key != -1:
     `inner`
 
 template button_press*(inner: untyped) =

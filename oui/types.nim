@@ -36,6 +36,7 @@ type
     when defined(android):
       eglsurface*: EGLSurface
     when defined(windows):
+      trackx*, tracky*: int
       hwnd*: HWND
 
   UiEventMod* = enum
