@@ -34,13 +34,12 @@ macro node_next_parent(id: untyped, delegate: bool = false) =
 
 template node*(id: untyped, kind: UiNodeKind, inner: untyped,
     delegate: bool = false) =
-  expandMacros:
-    var `id` {.inject.} = node_init(id, kind)
-    parent = self
-    self  = id
-    node_next_parent(id, delegate)
-    parent = id.parent
-    inner
+  var `id` {.inject.} = node_init(id, kind)
+  parent = self
+  self  = id
+  node_next_parent(id, delegate)
+  parent = id.parent
+  inner
   static:
     if parents.len > 0:
       discard parents.pop()
@@ -95,20 +94,27 @@ macro decl_widget*(name, base, params, inner: untyped) =
     params_list.add((pfixed))
   var
     params_str = ""
-    params_call_str = ""
   for param in params_list:
     params_str.add ", " & param
-    var fparam = param
-    fparam.delete(param.find(":"), param.len - 1)
-    params_call_str.add ", " & fparam
   
-  var cmd = nnkCommand.new_tree(base, ident("id"), nnkStmtList.new_tree(inner))
+  var fixstart = """
+var p {.gensym.}, s {.gensym.}: UiNode
+s = self
+p = parent
+  """
+  var fixend = """
+self = s
+parent = p
+  """
+  var stmtfix = new_stmt_list()
+  stmtfix.add(parse_stmt(fixstart))
+  stmtfix.add(inner)
+  stmtfix.add(parse_stmt(fixend))
+  var cmd = nnkCommand.new_tree(base, ident("id"), stmtfix)
   var strstmt = """
-template $1*(id, inner: untyped$2) = $3 
+template $1*(id, inner: untyped$2) = $3  
   inner
-template $1*(id: untyped$2, inner: untyped) = $1 id, inner$4
-  """ % [name.str_val, params_str, cmd.repr, params_call_str]
-  echo strstmt
+  """ % [name.str_val, params_str, cmd.repr]
   result = parse_stmt(strstmt)
 
 decl_ui_node window, UiWindow
@@ -275,11 +281,11 @@ template events*(inner: untyped) =
     `inner`
 
 template key_press*(inner: untyped) =
-  if event.event_mod == UiEventPress and event.key != -1:
+  if event.event_mod == UiEventPress:
     `inner`
 
 template key_release*(inner: untyped) =
-  if event.event_mod == UiEventRelease and event.key != -1:
+  if event.event_mod == UiEventRelease:
     `inner`
 
 template button_press*(inner: untyped) =

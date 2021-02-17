@@ -36,7 +36,13 @@ template demo_sidebar() =
         left sidebar.left
         right sidebar.right
         h 80
-
+    var mytxt = "fsadf"
+    textbox tt:
+      update:
+        w parent.w
+        h 50
+        bottom sidebar.bottom
+    do: mytxt
 template demo_content() =
   box content:
     color content_color
@@ -44,30 +50,23 @@ template demo_content() =
       left sidebar.right
       right app.right
       h app.h
-    button mrbox, button_style:
+    button mrbox:
       color "#555444"
       var count = 0
       update:
         w 200
         h 50
         right parent.right
-      text txt:
+      text:
+        color "#ff0000"
         update:
-          echo "UPDATED"
           fill parent
           str $count
       events:
         button_press:
           count.inc
           echo "Button with counter clicked"
-          mrbox.queue_redraw()
-    box:
-      color "#00ff00"
-      update:
-        top mrbox.bottom
-        bottom content.bottom
-        left parent.left
-        w parent.w
+          parent.queue_redraw()
 
 window app:
   title "Demo"

@@ -17,6 +17,7 @@ import macros, colors, strutils, cairo
 export colors, strutils
 import types, node, sugarsyntax, backend
 export types, node, sugarsyntax, backend
+import testmyway
 
 proc text_box_key_press*(text: var string, key: int, ch: string, shift: var bool, password, focused: bool) =
   if key == 65505:
@@ -84,6 +85,7 @@ decl_widget textbox, box:
 do:
   var
     shift {.gensym.} = false
+    this = self
   color "#252525"
   text:
     halign UiRight
@@ -91,10 +93,11 @@ do:
     update:
       str textstr
       fill parent
+  self = this
   events:
     key_press:
-      text_box_key_press(textstr, event.key, event.ch, shift, password, self.has_focus)
-      self.queue_redraw()
+      text_box_key_press(textstr, event.key, event.ch, shift, password, this.has_focus)
+      this.queue_redraw()
     key_release:
       if event.key == 65505:
         shift = false
@@ -178,44 +181,20 @@ do:
         continue
       node.fill self
 
-when defined(testing) and is_main_module:
-  import unittest
-  import model, tables, math, utils
-  import animation
-
-  window app:
-    title "Test App"
-    size 600, 400
-    stack_view my_page:
-      update:
-        size parent.w / 2, parent.h
-      box box1:
-        update:
-          fill parent
-        color "#ff0000"
-        visible true # node shown by default
-      box box2:
-        update:
-          fill parent
-        color "#00ff00"
-        visible false # node hidden by default
-      box box3:
-        update:
-          fill parent
-        color "#0000ff"
-        visible true # the node hidden by default
-    button btn1:
-      update:
-        w parent.w / 2
-        top parent.top
-        bottom parent.bottom
-        right parent.right
-      events:
-        button_press:
-          echo $self.name & " was pressed " & $event.button         
-      text:
-        update:
-          fill parent
-        str "Click me"
-  app.show()  
-  oui_main()
+test_my_way "ui":
+  test "declarations":
+    box box1:
+      button btn:
+        check parent.id == "box1"
+        text:
+          check parent.id == "btn"
+      row rw:
+        check parent.id == "box1"
+      column clmn:
+        check parent.id == "box1"
+      var tt = "f"
+      textbox txtbx:
+        check self.id == "txtbx"
+        check parent.id == "box1"
+      do: tt
+    check box1.children.len == 4

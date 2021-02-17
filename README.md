@@ -24,7 +24,7 @@ Open source, and expressive Ui framework with near native preformance, an easy t
   * Layout
 - 9 included widgets (Aka. 1 or more UiNodes)
   * Button
-  * Textfield
+  * Textbox
   * Combobox
   * Row
   * Column

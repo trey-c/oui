@@ -426,20 +426,22 @@ canvas:
 
 ```nim
 var myemailtext = ""
-textbox email, myemailtext:
+textbox email:
   update:
     size parent.w / 2, parent.h
   events:
     key_press:
       echo myemailtext
+do: myemailtext
 ```
 
 *Useful for password's or other sensitive information*
 
-You can **hide** `myemailtext` with `*` via
+You can **hide** `myemailtext` with `*` with
 
 ```nim
-textbox email, myemail, true:
+do: myemailtext
+do: true
 ```
 
 ### StackView
@@ -583,8 +585,9 @@ better_button_style.normal = "#00ff00"
 button btn1:
   update:
     size 100, 50
-button btn2, better_button_style:
+button btn2:
   update:
     size 100, 50
     left btn1.right
+do: better_button_style
 ```
