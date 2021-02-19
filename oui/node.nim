@@ -218,7 +218,18 @@ proc resize*(node: UiNode, w, h: float32) =
     node.h = h
     node.queue_redraw()
 
+template handle_event_offset(window, child: UiNode, ev: var UiEvent) =
+  var
+    tmpx = ev.x
+    tmpy = ev.y
+  ev.x = ev.x - int child.x
+  ev.y = ev.y - int child.y
+  window.handle_event(n, ev)
+  ev.x = tmpx
+  ev.y = tmpy
+
 proc handle_event*(window, node: UiNode, ev: var UiEvent) =
+  ouidebug node.name() & " got an "  & $ev.event_mod
   for on_ev in node.on_event:
     on_ev(node, node.parent, ev)
   for n in node.children:
@@ -233,15 +244,15 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
         n.hovered = true
         var tmp = ev.event_mod
         ev.event_mod = UiEventEnter
-        window.handle_event(n, ev)
+        window.handle_event_offset(n, ev)
         ev.event_mod = tmp
-      window.handle_event(n, ev) 
+      window.handle_event_offset(n, ev)
     else:
       if n.hovered:
         n.hovered = false
         var tmp = ev.event_mod
         ev.event_mod = UiEventLeave
-        window.handle_event(n, ev)
+        window.handle_event_offset(n, ev)
         ev.event_mod = tmp
 
 proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
