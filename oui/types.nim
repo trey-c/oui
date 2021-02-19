@@ -81,7 +81,7 @@ type
     children*: seq[UiNode]
     id*: string
     x*, y*, w*, h*: float32
-    margin_top*, margin_left*, margin_bottom*, margin_right*: float32
+    padding_top*, padding_left*, padding_bottom*, padding_right*: float32
     model*: UiModel
     clip*, visible*, hovered*, has_focus*, wants_focus*, animating*,
         need_redraw*, force_redraw*: bool

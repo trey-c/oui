@@ -23,6 +23,7 @@ template demo_sidebar() =
   box sidebar:
     color sidebar_color
     update:
+      self.y = 10
       w 175
       h app.h
     text:
@@ -39,10 +40,11 @@ template demo_sidebar() =
     var mytxt = "fsadf"
     textbox tt:
       update:
+        bottom parent.bottom
         w parent.w
         h 50
-        bottom sidebar.bottom
     do: mytxt
+
 template demo_content() =
   box content:
     color content_color
@@ -50,6 +52,18 @@ template demo_content() =
       left sidebar.right
       right app.right
       h app.h
+      w self.w - 20
+    box:
+      color "#ff0000"
+      update:
+        right parent.right
+        size 200, 200
+      box:
+        color "#0f0f0f"
+        update:
+          w parent.w / 2
+          h 100
+
     button mrbox:
       color "#555444"
       var count = 0
@@ -61,6 +75,7 @@ template demo_content() =
         color "#ff0000"
         update:
           fill parent
+          h 50
           str $count
       events:
         button_press:

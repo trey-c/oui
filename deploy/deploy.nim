@@ -39,18 +39,6 @@ template add_dep() {.dirty.} =
     url_text = ""
     compile_step_text = ""    
 
-  textbox name, name_text, false:
-    update:
-      size 100, 25
-  textbox url, url_text, false:
-    update:
-      size 100, 25
-      top name.bottom
-  textbox compilestep, compile_step_text, false:
-    update:
-      size 100, 25
-      top url.bottom
-  
   var compile_steps = new_j_array()
   lazy_button("Add compile step", addstep):
     bottom compilestep.bottom 
@@ -66,8 +54,6 @@ when is_main_module:
   window app:
     size 400, 600
     var myemailtext = ""
-    textbox email, myemailtext, false:
-      echo "hello"
     box header:
       color "#0000ff"
       update:
@@ -82,13 +68,14 @@ when is_main_module:
       update:
         top header.bottom
         bottom parent.bottom
-        w 199
         right parent.right
+        left parent.left
+      spacing 5
       for img in images:
         image:
           src img
           update:
-            size 200, 50
+            size 100, 50
   app.show()
   oui_main()
 

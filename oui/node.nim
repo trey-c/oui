@@ -24,37 +24,55 @@ var
 
 proc draw(node: UiNode)
 
-proc set_top*(node: UiNode, top: UiAnchor) =
-  node.top_anchored = true
-  node.y = float32 top
-
 proc top*(node: UiNode): UiAnchor =
   UiAnchor node.y
 
-proc set_left*(node: UiNode, left: UiAnchor) =
-  node.left_anchored = true
-  node.x = float32 left
+proc set_top*(node: UiNode, top: UiAnchor) =
+  node.top_anchored = true
+  if node.parent != nil:
+    if float32(node.parent.top) == float32 top:
+      node.y = 0
+      return
+ 
+  node.y = float32 top
 
 proc left*(node: UiNode): UiAnchor =
   UiAnchor node.x
+
+proc set_left*(node: UiNode, left: UiAnchor) =
+  node.left_anchored = true
+  if node.parent != nil:
+    if float32(node.parent.left) == float32 left:
+      node.x = 0
+      return
+
+  node.x = float32 left
+
+proc right*(node: UiNode): UiAnchor =
+  UiAnchor(node.w)
 
 proc set_right*(node: UiNode, right: UiAnchor) =
   if node.left_anchored:
     node.w = (float32 right) - node.x
   else:
+    if node.parent != nil:
+      if float32(node.parent.right) == float32 right:
+        node.x = node.parent.w - node.w
+        return
     node.x = (float32 right) - node.w 
 
-proc right*(node: UiNode): UiAnchor =
-  UiAnchor(node.x + node.w)
+proc bottom*(node: UiNode): UiAnchor =
+  UIAnchor(node.h)
 
 proc set_bottom*(node: UiNode, bottom: UiAnchor) =
   if node.top_anchored:
     node.h = (float32 bottom) - node.y
   else:
+    if node.parent != nil:
+      if float32(node.parent.bottom) == float32 bottom:
+        node.y = node.parent.h - node.h
+        return
     node.y = (float32 bottom) - node.h
-
-proc bottom*(node: UiNode): UiAnchor =
-  UIAnchor(node.y + node.h)
 
 proc name*(node: UiNode, detailed: bool = false): string =
   result = node.id & " (" & $node.kind & ")"
@@ -100,8 +118,9 @@ proc force_children_to_redraw(node: UiNode) =
 proc draw_children(node: UiNode, ctx: ptr Context) =
   for child in node.children:
     ctx.save()
+    ctx.translate(child.x, child.y)
     child.draw()
-    ctx.set_source(child.surface, float64 child.x - node.x, float64 child.y - node.y)
+    ctx.set_source(child.surface, 0, 0)
     ctx.paint()
     ctx.restore()
 
@@ -283,10 +302,16 @@ proc fill*(node, target: UiNode) =
   node.set_right target.right
 
 proc vcenter*(node, target: UiNode) =
-  node.y = target.y + target.h / 2 - node.h / 2
+  if target != node.parent:
+    node.y = target.y + target.h / 2 - node.h / 2
+  else:
+    node.y = target.h / 2 - node.h / 2
 
 proc hcenter*(node, target: UiNode) =
-  node.x = target.x + target.w / 2 - node.w / 2
+  if target != node.parent:
+    node.x = target.x + target.w / 2 - node.w / 2
+  else:
+    node.x = target.w / 2 - node.w / 2
 
 proc center*(node, target: UiNode) =
   node.vcenter(target)
