@@ -16,36 +16,36 @@
 import tables, macros, strutils
 import types
 
-proc init*(model: type UiModel): UiModel =
-  UiModel(count: 0, list: @[])
+proc init*(table: type UiTable): UiTable =
+  UiTable(count: 0, list: @[])
 
-proc add*(model: UiModel, table: UiModelTable) =
-  model.list.add(table)
-  if model.table_added != nil:
-    model.table_added(model.count)
-  model.count.inc
+proc add*(table: UiTable, table: UiTable) =
+  table.list.add(table)
+  if table.table_added != nil:
+    table.table_added(table.count)
+  table.count.inc
 
-proc `[]`*(model: UiModel, index: int): UiModelTable =
-  assert index <= model.count
-  model.list[index]
+proc `[]`*(table: UiTable, index: int): UiTable =
+  assert index <= table.count
+  table.list[index]
 
-proc `$`*(model: UiModel): string =
-  $model.list
+proc `$`*(table: UiTable): string =
+  $table.list
 
-proc at*(model: UiModel, index, flag: int): string =
-  assert index <= model.count
-  model[index][flag]
+proc at*(table: UiTable, index, flag: int): string =
+  assert index <= table.count
+  table[index][flag]
 
-proc clear*(model: UiModel) = 
-  model.list.set_len(0)
-  model.count = 0
+proc clear*(table: UiTable) = 
+  table.list.set_len(0)
+  table.count = 0
 
-macro declare_model_flags(name: string, args: varargs[string]) =
+macro declare_table_flags(name: untyped, args: varargs[string]) =
   var 
     i = 0
-    model_enum = nnkEnumTy.newTree(newEmptyNode())
+    table_enum = nnkEnumTy.newTree(newEmptyNode())
   for arg in args:
-    model_enum.add(
+    table_enum.add(
       nnkEnumFieldDef.newTree(newIdentNode(name.str_val() & arg.str_val().capitalize_ascii()), newLit(i))
     )
     i.inc
@@ -53,17 +53,17 @@ macro declare_model_flags(name: string, args: varargs[string]) =
     nnkTypeDef.newTree(
       newIdentNode(name.str_val() & "Flags"),
       newEmptyNode(),
-      model_enum
+      table_enum
     )
   )
 
-macro declare_model_add(name: string, args: varargs[string]) =
+macro declare_table_add(name: untyped, args: varargs[string]) =
   var 
     add = ident("add" & name.str_val)
     add_params_defs = nnkIdentDefs.newTree()
     add_stmt = new_stmt_list()
     add_table = ident("table")
-    model = ident("model")
+    table = ident("table")
   for arg in args:
     add_params_defs.add ident(arg.str_val)
   add_params_defs.add ident("string")
@@ -73,8 +73,8 @@ macro declare_model_add(name: string, args: varargs[string]) =
     nnkFormalParams.newTree(
       newEmptyNode(),
       nnkIdentDefs.newTree(
-        model,
-        newIdentNode("UiModel"),
+        table,
+        newIdentNode("UiTable"),
         newEmptyNode()
       ),
       add_params_defs
@@ -103,31 +103,31 @@ macro declare_model_add(name: string, args: varargs[string]) =
     quote do:
       var `add_table` = init_ordered_table[int, string]()
       `add_stmt`
-      `model`.add(`add_table`)
+      `table`.add(`add_table`)
   )
 
 
-template declare_model*(name: string, args: varargs[string]) =
-  declare_model_flags(name, args)
-  declare_model_add(name, args)
+template decl_table*(name: untyped, args: varargs[string]) =
+  declare_table_flags(name, args)
+  declare_table_add(name, args)
 
 when defined(testing) and is_main_module:
   import unittest
 
-  declare_model("Customer", "name", "desc")
+  decl_table Customer, "name", "desc"
   
   proc main() =
-    suite "UiModel":
-      var model = UiModel.init()
+    suite "UiTable":
+      var table = UiTable.init()
 
       test "add":
-        model.add_customer("Fred", "Cool guy")
-        model.add_customer("Bob", "Lame guy")
-        check: model.count == 2
+        table.add_customer("Fred", "Cool guy")
+        table.add_customer("Bob", "Lame guy")
+        check: table.count == 2
       test "[]":
-        check: model[0][ord CustomerDesc] == "Cool guy"
-        check: model[1][ord CustomerName] == "Bob"
+        check: table[0][ord CustomerDesc] == "Cool guy"
+        check: table[1][ord CustomerName] == "Bob"
       test "clear":
-        model.clear()
-        check: model.count == 0
+        table.clear()
+        check: table.count == 0
   main()

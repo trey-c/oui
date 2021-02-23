@@ -46,36 +46,61 @@ template add_dep() {.dirty.} =
     compile_steps.add(new_j_string(compile_step_text))
     compile_step_text = ""
     
-  
-proc switch_os_page(img: string, stack: UiNode) =
-  discard
+template switch_os_page(img: string) =
+  case img:
+  of "android.png":  
+    mainstack.stack_switch(android_page):
+      discard
+  of "linux.png":
+    mainstack.stack_switch(linux_page):
+      discard
+  of "windows.png": 
+    mainstack.stack_switch(windows_page):
+      discard
+
+template build_header() =
+  box header:
+    color "#0000ff"
+    update:
+      w parent.w
+      h 50
+      top app.top
+    text:
+      str "Tap on the platform your deploying to"
+      update:
+        fill parent
+
+template deploy_image(path: string) =
+  button:
+    update:
+      size 100, 50
+    events:
+      button_press:
+        switch_os_page(self.src)
+
+template build_mainstack() =
+  stack mainstack:
+    update:
+      top header.bottom
+      bottom parent.bottom
+      right parent.right
+      left parent.left
+    box android_page:
+      visible false
+    box linux_page:
+      visible false
+    box windows_page:
+      visible false
+      box:
+        color 255, 255, 255
+        update: # TODO: fails to bump parent
+          discard
 
 when is_main_module:
   window app:
     size 400, 600
-    var myemailtext = ""
-    box header:
-      color "#0000ff"
-      update:
-        w parent.w
-        h 50
-        top app.top
-      text:
-        str "Choose the platform your deploying to "
-        update:
-          fill parent
-    row ttt:
-      update:
-        top header.bottom
-        bottom parent.bottom
-        right parent.right
-        left parent.left
-      spacing 5
-      for img in images:
-        image:
-          src img
-          update:
-            size 100, 50
+    build_header()
+    build_mainstack()
   app.show()
   oui_main()
 

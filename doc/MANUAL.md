@@ -18,7 +18,9 @@
   * [Layout](#layout)
 - [Widgets](#widgets)
   * [Textbox](#textbox)
-  * [StackView](#stackview)
+  * [Stack](#stack)
+  * [List](#list)
+- [Tables](#tables)
 - [Creating widgets](#creating-widgets)
   * [Declaring](#declaring)
   * [Styling](#styling)
@@ -68,7 +70,7 @@ box:
 As the `update:` name suggests, it gets called everytime there's an event or if something useful happens. You can 
 alse use `self.trigger_update_attributes()` to immediately trigger it manually
 
-Nodes and widgets also can have `id`'s, but for widgets; it's a must
+Nodes and widgets also can have `id`'s
 
 ```nim
 box mycoolbox:
@@ -78,54 +80,6 @@ box mycoolbox:
 box:
   update:
     left mycoolbox.right
-```
-
-**P.S**
-
-You cannot use the node's `id` within its body
-
-```nim
-box myothercoolbox:
-  update:
-    w myothercoolbox.w / 2
-```
-
-You'll get a super **cool**, and not at all helpful `undeclared identifier` message even though it **should** be declared intuitively.
-
-Get around that by doing this
-
-```nim
-  w self.w / 2
-```
-
-Or
-
-```nim
-  w parent.w / 2
-```
-
-Or in more rare cases
-
-```nim
-  var mystupidbox: UiNode
-  box: # Don't know the id or have no access to the identifier for whatever reason. Thus you must take the fun path
-    mystupidbox = self
-    update:
-      ...
-  ...
-  box box123:
-    update:
-      top mystupidbox.bottom
-```
-
-This works however since its not in the same body!
-
-```nim
-  box box3:
-    ... 
-  box box4: # Move this two spaces forward and you gotta do whats above
-    update:
-      bottom box3.top
 ```
 
 ## Positioning UiNodes 
@@ -416,7 +370,12 @@ canvas:
 
 ### Image
 
-> TODO
+```nim
+image:
+  src "/home/trey/Pictures/naughtysecret.png"
+  w 100
+  h 100
+```
 
 ## Widgets
 
@@ -444,12 +403,12 @@ do: myemailtext
 do: true
 ```
 
-### StackView
+### Stack
 
 *Useful for creating pages*
 
 ```nim
-stack_view my_page:
+stack my_page:
   update:
     size parent.w / 2, parent.h
   box box1:
@@ -463,13 +422,13 @@ stack_view my_page:
     visible false # node hidden by default
 ```
 
-You switch the displayed node by calling `stack_view_switch`
+You switch the displayed node by calling `stack_switch`
 
 ```nim
 import oui/animation
 
 ...
-my_page.stack_view_switch(box2):
+my_page.stack_switch(box2):
   asyncCheck my_page.slide_node(box2, UiRight)
 ```
 
@@ -480,9 +439,59 @@ Or skip out on animating the transition with the handy `discard` statement
   discard
 ```
 
+### List
+
+Check [Tables](#tables) first
+
+```nim
+var table = UiTable.init()
+...
+list customers:
+  model table
+  delegate:
+    box:
+      update:
+        w parent.w
+        h 50
+      text:
+       str table[self.index][ord CustomerName]
+       update:
+         fill parent
+```
+
+> TODO MORE
+
+## Tables
+
+> Usefull for displaying data
+
+Tables are typically used and displayed with [List's](#list), and can be declared using `decl_table`
+
+```nim
+import oui/table
+...
+decl_table Customer, "name", "age"
+``` 
+
+Above declares both an enum, and an *add* proc. Used like so
+
+```nim
+var table = UiTable.init()
+table.add_customer("Fred", "29")
+table.add_customer("Bob", "4")
+```
+
+Grab data using
+
+```nim
+const index = 0
+echo(table[index][ord CustomerName] & " is " & table[index][ord CustomerAge] & " years old"
+# Prints 'Fred is 29 years old"
+```
+
 ## Creating widgets
 
-> P.S widgets are just complicated UiNodes that must be asigned an `id`
+> P.S widgets are just complicated UiNodes
 
 Heres an example of a simple **button** implementation
 
@@ -537,7 +546,7 @@ template button*(id, inner: untyped, style: ButtonStyle = button_style) =
 
 Widgets can have multiple or even zero *bonus* parameters (not the `id` and `inner` params)
 
-Two examples would be a **Textbox**, and **ListView**
+Two examples would be a **Textbox**, and **List**
 
 ```nim
 ...
@@ -550,7 +559,7 @@ do:
 
 ```nim
 ...
-decl_widget list_view, row:
+decl_widget list, row:
   discard
 do:
   ...

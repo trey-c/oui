@@ -29,7 +29,7 @@ macro node_next_parent(id: untyped, delegate: bool = false) =
   var current_parent = if parents.len > 0: parents[parents.high] else: new_nil_lit()
   if current_parent.kind != nnkNilLit and delegate.bool_val == false:
     result = quote do:
-      `current_parent`.add(`id`) 
+      parent.add(`id`) 
   parents.add(id)
 
 template node*(id: untyped, kind: UiNodeKind, inner: untyped,
@@ -44,18 +44,17 @@ template node*(id: untyped, kind: UiNodeKind, inner: untyped,
     if parents.len > 0:
       discard parents.pop()
 
-var noid_count* {.compileTime.}: int
-macro node_without_id*(name, inner: untyped) =
-  noid_count.inc
-  var noid = ident("noid" & $noid_count)
-  result = quote do:
-    `name` `noid`, `inner`
-    
 template decl_ui_node*(name: untyped, kind: UiNodeKind) =
   template name*(id: untyped, inner: untyped) =
+    var p {.gensym.}, s {.gensym.}: UiNode
+    s = self
+    p = parent
     node id, kind, inner, false
+    self = s
+    parent = p
   template name*(inner: untyped) =
-    node_without_id name, inner
+    block:
+      name noid, inner
 
 macro decl_style*(name, inner: untyped) =
   var styles: seq[tuple[name, color: string]] = @[]
@@ -94,27 +93,21 @@ macro decl_widget*(name, base, params, inner: untyped) =
     params_list.add((pfixed))
   var
     params_str = ""
+    params_call_str = ""
   for param in params_list:
     params_str.add ", " & param
-  
-  var fixstart = """
-var p {.gensym.}, s {.gensym.}: UiNode
-s = self
-p = parent
-  """
-  var fixend = """
-self = s
-parent = p
-  """
-  var stmtfix = new_stmt_list()
-  stmtfix.add(parse_stmt(fixstart))
-  stmtfix.add(inner)
-  stmtfix.add(parse_stmt(fixend))
-  var cmd = nnkCommand.new_tree(base, ident("id"), stmtfix)
+    var fparam = param
+    fparam.delete(param.find(":"), param.len - 1)
+    params_call_str.add ", " & fparam
+
+  var cmd = nnkCommand.new_tree(base, ident("id"), inner)
   var strstmt = """
-template $1*(id, inner: untyped$2) = $3  
+template $1*(id, inner: untyped$2) = $3
   inner
-  """ % [name.str_val, params_str, cmd.repr]
+template $1*(inner: untyped$2) = 
+  block:
+    $1 noid, inner$4
+  """ % [name.str_val, params_str, cmd.repr, params_call_str]
   result = parse_stmt(strstmt)
 
 decl_ui_node window, UiWindow
@@ -124,13 +117,13 @@ decl_ui_node canvas, UiCanvas
 decl_ui_node layout, UiLayout
 decl_ui_node image, UiImage
 
-template model*(m: UiModel) =
-  node_self().set_model m
+template table*(m: UiTable) =
+  node_self().set_table m
 
 template delegate*(call: untyped, kind: UiNodeKind, inner: untyped) =
-  node_self().delegate = proc(tmpmodel: UiModel, tmpindex: int): UiNode =
+  node_self().delegate = proc(tmptable: UiTable, tmpindex: int): UiNode =
     var
-      model {.inject.} = tmpmodel
+      table {.inject.} = tmptable
       index {.inject.} = tmpindex
     node delegate, kind, inner, true
     return delegate
@@ -205,15 +198,6 @@ template color*(r, g, b: int = 255) =
 
 template color*(c: string) =
   self.color = parse_color(c)
-
-template foreground*(r, g, b: int = 255) =
-  self.foreground = rgb(r, g, b)
-
-template foreground*(c: string) =
-  self.foreground = parse_color(c)
-
-template foreground*(c: Color) =
-  self.foreground = c
 
 template opacity*(o: range[0f..1f]) =
   self.opacity = o
@@ -312,7 +296,7 @@ template arrange_layout*(inner: untyped) =
   self.arrange_layout = proc() {.closure.} =
     `inner`
 
-when defined(testing) and is_main_module:
+when defined(testmyway) and is_main_module:
   import unittest
   suite "sugarsyntax":
     test "children":
@@ -323,19 +307,26 @@ when defined(testing) and is_main_module:
           box box4:
             discard
         box box5:
-          echo "NAME"
-          echo parent.name()
-          echo box5.parent.name()
+          discard
 
         box box6:
           box box7:
             discard
+          box:
+            discard
+          box:
+            box:
+              discard
+            box: 
+              discard
+            check self.children.len == 2
+
       check box1.children.len == 3
       check box2.children.len == 2
       check box3.children.len == 0
       check box4.children.len == 0
       check box5.children.len == 0
-      check box6.children.len == 1
+      check box6.children.len == 3
       check box7.children.len == 0
 
     test "attributes":
@@ -353,10 +344,7 @@ when defined(testing) and is_main_module:
 
         color "#eeeeee"
         color 255, 255, 255
-        foreground "#eeeeee"
-        foreground 255, 255, 255
-        color self.foreground
-        foreground self.color
+        color self.color
         opacity 0.5
         radius 5
       text:

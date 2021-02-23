@@ -28,8 +28,8 @@ Open source, and expressive Ui framework with near native preformance, an easy t
   * Combobox
   * Row
   * Column
-  * ListView
-  * StackView
+  * List
+  * Stack
   * SwipeView
   * Popup
 - Addons that add support for

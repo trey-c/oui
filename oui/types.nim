@@ -53,10 +53,10 @@ type
   UiEventCallback* = proc(ev: UiEvent) {.gcsafe.}
 
 type
-  UiModelTable* = OrderedTable[int, string]
+  UiTableRow* = OrderedTable[int, string]
 
-  UiModel* = ref object
-    list*: seq[UiModelTable]
+  UiTable* = ref object
+    list*: seq[UiTableRow]
     count*: int
     table_added*, table_removed*: proc(index: int)
 
@@ -82,14 +82,14 @@ type
     id*: string
     x*, y*, w*, h*: float32
     padding_top*, padding_left*, padding_bottom*, padding_right*: float32
-    model*: UiModel
+    table*: UiTable
     clip*, visible*, hovered*, has_focus*, wants_focus*, animating*,
         need_redraw*, force_redraw*: bool
     update_attributes*: seq[UpdateAttributesCb]
     on_event*: seq[OnEventCb]
     draw_post*: seq[DrawPostCb]
     index*: int
-    color*, foreground*: colors.Color
+    color*: colors.Color
     opacity*: range[0f..1f]
     left_anchored*, top_anchored*: bool
     oldw*, oldh*: float32
@@ -111,7 +111,7 @@ type
     of UiLayout:
       spacing*: float32
       delegates: seq[UiNode]
-      delegate*: proc(model: UiModel, index: int): UiNode
+      delegate*: proc(table: UiTable, index: int): UiNode
       arrange_layout*: proc()
     of UiImage:
       src*: string

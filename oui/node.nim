@@ -152,7 +152,7 @@ proc draw(node: UiNode) =
   ctx.save()
   case node.kind:
     of UiWindow:
-      ctx.set_source_rgba(1, 1, 1, 0)
+      ctx.set_source_color(node.color,  node.opacity)
       ctx.rectangle(0f, 0f, float64 node.w, float64 node.h)
       ctx.fill()
     of UiBox:
@@ -229,7 +229,7 @@ template handle_event_offset(window, child: UiNode, ev: var UiEvent) =
   ev.y = tmpy
 
 proc handle_event*(window, node: UiNode, ev: var UiEvent) =
-  ouidebug node.name() & " got an "  & $ev.event_mod
+  ouidebug node.name() & " received an "  & $ev.event_mod
   for on_ev in node.on_event:
     on_ev(node, node.parent, ev)
   for n in node.children:
@@ -272,8 +272,9 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     draw_post: @[],
     wants_focus: true,
     index: -1,
-    model: nil,
+    table: nil,
     children: @[],
+    color: parse_color("#ffffff"),
     opacity: 1f,
     left_anchored: false,
     top_anchored: false)
@@ -336,21 +337,21 @@ proc add*(node: UiNode, child: UiNode) =
   node.children.add(child)
 
 proc add_delegate(node: UiNode, index: int) =
-  var delegate = node.delegate(node.model, index)
-  delegate.model = node.model
+  var delegate = node.delegate(node.table, index)
+  delegate.table = node.table
   delegate.index = index
   node.add(delegate)
 
-proc set_model*(node: UiNode, model: UiModel) =
-  if model == nil:
-    node.model = nil
+proc set_table*(node: UiNode, table: UiTable) =
+  if table == nil:
+    node.table = nil
     return
 
-  node.model = model
-  node.model.table_added = proc(index: int) =
+  node.table = table
+  node.table.table_added = proc(index: int) =
     node.add_delegate(index)
     ouidebug "table row added at index " & $index
-  node.model.table_removed = proc(index: int) =
+  node.table.table_removed = proc(index: int) =
     ouidebug "table row removed at index " & $index
 
 proc show*(node: UiNode) =

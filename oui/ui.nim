@@ -49,7 +49,7 @@ template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
     child.`axis` = tmp
     tmp = tmp + child.`size` + node.spacing
 
-template stack_view_switch*(node, target: UiNode, animate: untyped) =
+template stack_switch*(node, target: UiNode, animate: untyped) =
   for n in node.children:
     if n.visible == true and n != target:
       n.visible = false
@@ -147,7 +147,7 @@ do:
     if swipeing:
       yoffset = yoffset + (pos.y - event.y)
 
-decl_widget list_view, layout:
+decl_widget list, layout:
   discard
 do:
   discard
@@ -164,7 +164,7 @@ do:
   popup:
     up = self
     size 150, 400
-    list_view:
+    list:
       update:
         fill parent
   events:
@@ -172,7 +172,7 @@ do:
       up.show()
       up.engine.move_window(ev.xroot, ev.yroot)
 
-decl_widget stack_view, layout:
+decl_widget stack, layout:
   discard
 do:
   arrange_layout:
