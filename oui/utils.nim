@@ -44,7 +44,7 @@ proc draw_png*(ctx: ptr Context, src: string, x, y, w, h: float) =
   img.destroy()
 
 proc draw_rounded_rectangle*(ctx: ptr Context, color: Color, opacity, x, y, w,
-    h, rad: float32) =
+    h, rad, border_width: float32, border_color: Color) =
   ctx.set_source_color(color, opacity)
   var degrees = 3.14 / 180
   ctx.new_sub_path()
@@ -53,8 +53,17 @@ proc draw_rounded_rectangle*(ctx: ptr Context, color: Color, opacity, x, y, w,
   ctx.arc(x + rad, y + h - rad, rad, 90 * degrees, 180 * degrees)
   ctx.arc(x + rad, y + rad, rad, 180 * degrees, 270 * degrees)
   ctx.close_path()
+ 
+  var path = ctx.copy_path()
   ctx.fill()
-
+  if border_width <= 0:
+    return
+  ctx.set_source_color(border_color, opacity)
+  ctx.append_path(path)
+  ctx.set_line_width(border_width)
+  ctx.stroke()
+  path.destroy()
+  
 template text_vars(ctx: ptr Context, text, family: string) {.dirty.} =
   var
     layout = pango_cairo_create_layout(ctx)

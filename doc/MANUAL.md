@@ -36,14 +36,26 @@ All **`UiNode's** use the following shortcuts to assaign/get attributes
 - `left`
 - `bottom`
 - `right`
-- `margin_top`
-- `margin_left`
-- `margin_bottom`
-- `margin_right`
+- `padding_top`
+- `padding_left`
+- `padding_bottom`
+- `padding_right`
 - `color`
 - `update`
 - `events`
 - `name`
+
+**Events**
+
+- `key_press`
+- `key_release`
+- `button_press`
+- `button_release`
+- `mouse_enter`
+- `mouse_leave`
+- `mouse_motion`
+- `focus`
+- `unfocus`
 
 - and two very handy variables
   * `self`
@@ -316,11 +328,13 @@ box:
 
 The box's default color is white, so it may be invisible until given a different color
 
-And the box's `radius | opacity` can be changed using
+And the box's `radius | opacity | border_width | border_color` can be changed using
 
 ```nim
 radius 15
 opacity 0.5
+border_width 2
+border_color "#000fff"
 ```
 
 ### Text

@@ -15,17 +15,18 @@
 
 import tables, macros, strutils
 import types
+import testmyway
 
 proc init*(table: type UiTable): UiTable =
   UiTable(count: 0, list: @[])
 
-proc add*(table: UiTable, table: UiTable) =
-  table.list.add(table)
+proc add*(table: UiTable, row: UiTableRow) =
+  table.list.add(row)
   if table.table_added != nil:
     table.table_added(table.count)
   table.count.inc
 
-proc `[]`*(table: UiTable, index: int): UiTable =
+proc `[]`*(table: UiTable, index: int): UiTableRow =
   assert index <= table.count
   table.list[index]
 
@@ -62,7 +63,7 @@ macro declare_table_add(name: untyped, args: varargs[string]) =
     add = ident("add" & name.str_val)
     add_params_defs = nnkIdentDefs.newTree()
     add_stmt = new_stmt_list()
-    add_table = ident("table")
+    row = ident("row")
     table = ident("table")
   for arg in args:
     add_params_defs.add ident(arg.str_val)
@@ -82,7 +83,7 @@ macro declare_table_add(name: untyped, args: varargs[string]) =
   for arg in args:
     add_stmt.add nnkAsgn.newTree(
       nnkBracketExpr.newTree(
-        add_table,
+        row,
         nnkDotExpr.newTree(
           newIdentNode(name.str_val() & arg.str_val()),
           newIdentNode("ord")
@@ -101,9 +102,9 @@ macro declare_table_add(name: untyped, args: varargs[string]) =
     new_empty_node(),
     new_empty_node(),
     quote do:
-      var `add_table` = init_ordered_table[int, string]()
+      var `row` = init_ordered_table[int, string]()
       `add_stmt`
-      `table`.add(`add_table`)
+      `table`.add(`row`)
   )
 
 
@@ -111,23 +112,19 @@ template decl_table*(name: untyped, args: varargs[string]) =
   declare_table_flags(name, args)
   declare_table_add(name, args)
 
-when defined(testing) and is_main_module:
-  import unittest
-
+when defined(testmyway):
   decl_table Customer, "name", "desc"
-  
-  proc main() =
-    suite "UiTable":
-      var table = UiTable.init()
 
-      test "add":
-        table.add_customer("Fred", "Cool guy")
-        table.add_customer("Bob", "Lame guy")
-        check: table.count == 2
-      test "[]":
-        check: table[0][ord CustomerDesc] == "Cool guy"
-        check: table[1][ord CustomerName] == "Bob"
-      test "clear":
-        table.clear()
-        check: table.count == 0
-  main()
+test_my_way "UiTable":
+  var customers = UiTable.init()
+
+  test "add":
+    customers.add_customer("Fred", "Cool guy")
+    customers.add_customer("Bob", "Lame guy")
+    check: customers.count == 2
+  test "[]":
+    check: customers[0][ord CustomerDesc] == "Cool guy"
+    check: customers[1][ord CustomerName] == "Bob"
+  test "clear":
+    customers.clear()
+    check: customers.count == 0

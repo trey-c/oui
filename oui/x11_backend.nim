@@ -113,17 +113,23 @@ proc main_x11*() =
       var
         key = XLookupKeysym(cast[PXKeyEvent](addr event), 0)
         native = native_from_xwindow(event.xkey.window)
-        kmod = if event.theType == KeyPress: UiEventPress else: UiEventRelease
+        kmod = if event.theType == KeyPress: UiEventKeyPress else: UiEventKeyRelease
       assert native.isNil() == false
  
-      keycb(kmod, event.xkey.x, event.xkey.y, int event.xkey.keycode, $(XKeysymToString(key)), native)
+      if event.theType == KeyPress: 
+        keycb(UiEventKeyPress, int event.xkey.x, int event.xkey.y, int event.xkey.keycode, $(XKeysymToString(key)), native)
+      elif event.theType == KeyRelease:
+        keycb(UiEventKeyRelease, int event.xkey.x, int event.xkey.y, int event.xkey.keycode, $(XKeysymToString(key)), native)
     of ButtonPress, ButtonRelease:
       var native = native_from_xwindow(event.xbutton.window)
       assert native.isNil() == false
  
-      buttoncb(if event.theType == ButtonPress: UiEventPress else: UiEventRelease,
-        int event.xbutton.button, int event.xbutton.x, int event.xbutton.y, int event.xbutton.xroot,
-        int event.xbutton.yroot, native)
+      if event.theType == ButtonPress: 
+        buttoncb(UiEventMousePress, int event.xbutton.button, int event.xbutton.x, int event.xbutton.y, int event.xbutton.xroot,
+          int event.xbutton.yroot, native)
+      elif event.theType == ButtonRelease:
+        buttoncb(UiEventMouseRelease, int event.xbutton.button, int event.xbutton.x, int event.xbutton.y, int event.xbutton.xroot,
+          int event.xbutton.yroot, native)
     of MotionNotify:
       var native = native_from_xwindow(event.xmotion.window)
       assert native.isNil() == false

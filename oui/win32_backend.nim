@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncdispatch
+import asyncdispatch, strutils
 import cairo, cairowin32, winim, winim/inc/windef
 import types
 
@@ -67,10 +67,11 @@ proc handle_message(hwnd: HWND, msg: UINT, wparam: WPARAM,
   of WM_KEYUP, WM_KEYDOWN:
     var key = cast[int](wparam)
     var ch = $cast[char](wparam)
+    ch = ch.toLowerAscii()
     if msg == WM_KEYDOWN:
-      keycb(UiEventPress, native.trackx, native.tracky, key, $ch, native)
+      keycb(UiEventKeyPress, native.trackx, native.tracky, key, $ch, native)
     elif msg == WM_KEYUP:
-      keycb(UiEventRelease,  native.trackx, native.tracky, key, $ch, native)
+      keycb(UiEventKeyRelease,  native.trackx, native.tracky, key, $ch, native)
   of WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_MBUTTONDOWN, WM_XBUTTONDOWN,
       WM_LBUTTONUP, WM_RBUTTONUP, WM_MBUTTONUP, WM_XBUTTONUP:
     var button = 1
@@ -85,10 +86,10 @@ proc handle_message(hwnd: HWND, msg: UINT, wparam: WPARAM,
 
     if msg == WM_LBUTTONDOWN or msg == WM_RBUTTONDOWN or msg ==
         WM_MBUTTONDOWN or msg == WM_XBUTTONDOWN:
-      buttoncb(UiEventRelease, button, cast[int](
+      buttoncb(UiEventMousePress, button, cast[int](
           GET_X_LPARAM(lparam)), cast[int](GET_Y_LPARAM(lparam)), -1, -1, native)
     else:
-      buttoncb(UiEventPress, button, cast[int](
+      buttoncb(UiEventMouseRelease, button, cast[int](
           GET_X_LPARAM(lparam)), cast[int](GET_Y_LPARAM(lparam)), -1, -1, native)
   of WM_PAINT:
     var

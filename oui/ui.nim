@@ -19,11 +19,10 @@ import types, node, sugarsyntax, backend
 export types, node, sugarsyntax, backend
 import testmyway
 
-proc text_box_key_press*(text: var string, key: int, ch: string, shift: var bool, password, focused: bool) =
-  if key == 65505:
-    shift = true
+proc text_box_key_press*(text: var string, event: var UiEvent, ch: string, password, focused: bool) =
+  echo event.shift_state
   if focused:
-    case key:
+    case event.key:
     of 65288:
       text.delete(text.high, text.high)
     of 32:
@@ -37,11 +36,10 @@ proc text_box_key_press*(text: var string, key: int, ch: string, shift: var bool
       if password:
         text.add("*")
       else:
-        if shift:
+        if event.shift_state == true:
           text.add(ch.to_upper())
         else:
           text.add(ch)
-    #root.queue_redraw(self)
 
 template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
   var tmp = 0.0
@@ -51,20 +49,26 @@ template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
 
 template stack_switch*(node, target: UiNode, animate: untyped) =
   for n in node.children:
-    if n.visible == true and n != target:
-      n.visible = false
+    n.visible = false
+  for n in node.children:
     if n == target:
       n.visible = true
       animate
+      break
+  node.queue_redraw()
 
 decl_style button: 
-  normal: "#212121"
-  hover: "#313113"
-  active: "#555555"
+  normal: "#0099ff"
+  hover: "#00ccff"
+  active: "#006bb3"
+  border: "#003d66"
 decl_widget button, box:
   style: ButtonStyle = button_style
 do:
   color style.normal
+  radius 10
+  border_width 2
+  border_color style.border
   events:
     mouse_enter:
       color style.hover
@@ -79,28 +83,40 @@ do:
       color style.hover
       self.queue_redraw()
 
+decl_style textbox: 
+  normal: "#252525"
+  border_focus: "#00ccff"
+  border_normal: "#212121"
+  txt: "#cccccc"
 decl_widget textbox, box:
   var textstr: var string
   password: bool = false
+  style: TextboxStyle = textbox_style
 do:
   var
-    shift {.gensym.} = false
-    this = self
-  color "#252525"
+    this {.gensym.} = self
+  accepts_focus true
+  border_width 2
+  radius 10
+  color style.normal
+  border_color style.border_normal
   text:
     halign UiRight
-    color "#cccccc"
+    color style.txt
     update:
       str textstr
       fill parent
   self = this
   events:
+    focus:
+      border_color style.border_focus
+      self.queue_redraw()
+    unfocus:
+      border_color style.border_normal
+      self.queue_redraw()
     key_press:
-      text_box_key_press(textstr, event.key, event.ch, shift, password, this.has_focus)
+      text_box_key_press(textstr, event, event.ch, password, this.has_focus)
       this.queue_redraw()
-    key_release:
-      if event.key == 65505:
-        shift = false
 
 decl_widget row, layout:
   discard

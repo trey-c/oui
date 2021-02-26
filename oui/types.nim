@@ -39,17 +39,26 @@ type
       trackx*, tracky*: int
       hwnd*: HWND
 
-  UiEventMod* = enum
-    UiEventPress, UiEventRelease, UiEventMotion
-    UiEventExpose, UiEventResize, UiEventEnter,
-    UiEventLeave
+  UiEventKind* = enum
+    UiEventMousePress, UiEventMouseRelease, UiEventKeyPress, UiEventKeyRelease, 
+    UiEventMouseMotion, UiEventExpose, UiEventResize, UiEventEnter, UiEventLeave,
+    UiEventFocus, UiEventUnfocus
 
   UiEvent* = object
-    event_mod*: UiEventMod
-    button*, x*, y*, xroot*, yroot*, key*, w*, h*: int
-    ch*: string
+    case kind*: UiEventKind
+    of UiEventKeyPress, UiEventKeyRelease:
+      key*: int
+      caps_lock_state*, shift_state*, num_lock_state*: bool  
+      ch*: string
+    of UiEventExpose, UiEventResize:
+      w*, h*: int
+    of UiEventMouseMotion, UiEventMousePress, UiEventMouseRelease:
+      button*, xroot*, yroot*: int
+    else:
+      discard
+    x*, y*: int
     native*: UiNative
-
+    
   UiEventCallback* = proc(ev: UiEvent) {.gcsafe.}
 
 type
@@ -68,6 +77,7 @@ type
     UiTop, UiBottom
 
   UpdateAttributesCb* = proc(self, parent: UiNode)
+  ArrangeLayoutCb* = proc(self, parent: UiNode)
   OnEventCb* = proc(self, parent: UiNode, event: var UiEvent)
   DrawPostCb* = proc()
 
@@ -83,7 +93,7 @@ type
     x*, y*, w*, h*: float32
     padding_top*, padding_left*, padding_bottom*, padding_right*: float32
     table*: UiTable
-    clip*, visible*, hovered*, has_focus*, wants_focus*, animating*,
+    clip*, visible*, hovered*, has_focus*, accepts_focus*, animating*,
         need_redraw*, force_redraw*: bool
     update_attributes*: seq[UpdateAttributesCb]
     on_event*: seq[OnEventCb]
@@ -96,7 +106,7 @@ type
     case kind*: UiNodeKind
     of UiBox:
       radius*: float32
-      border_top*, border_left*, border_bottom*, border_right*: float32
+      border_width*: float32
       border_color*: colors.Color
     of UiWindow:
       title*: string
@@ -112,7 +122,7 @@ type
       spacing*: float32
       delegates: seq[UiNode]
       delegate*: proc(table: UiTable, index: int): UiNode
-      arrange_layout*: proc()
+      arrange_layout*: seq[ArrangeLayoutCb]
     of UiImage:
       src*: string
 
@@ -123,50 +133,34 @@ var
 macro exposecb*(x, y, native: untyped) =
   result = parse_stmt("""
 $1.received_event((UiEvent(
-  event_mod: UiEventExpose,
-  button: -1,
+  kind: UiEventExpose,
   x: $2,
   y: $3,
-  xroot: -1,
-  yroot: -1,
   w: -1,
   h: -1,
-  key: -1,
-  ch: "",
   native: $1)))
- 
 """ % [native.repr, x.repr, y.repr])
 
 macro keycb*(kind, x, y, key, ch, native: untyped) =
   result = parse_stmt("""
 $1.received_event((UiEvent(
-  event_mod: $6,
-  button: -1,
+  kind: $6,
   x: $2,
   y: $3,
-  xroot: -1,
-  yroot: -1,
-  w: -1,
-  h: -1,
   key: $4,
   ch: $5,
   native: $1)))
- 
 """ % [native.repr, x.repr, y.repr, key.repr, ch.repr, kind.repr])
 
 macro buttoncb*(kind, button, x, y, xroot, yroot, native: untyped) =
   result = parse_stmt("""
 $1.received_event((UiEvent(
-  event_mod: $7,
+  kind: $7,
   button: $2,
   x: $3,
   y: $4,
   xroot: $5,
   yroot: $6,
-  w: -1,
-  h: -1,
-  key: -1,
-  ch: "",
   native: $1)))
  
 """ % [native.repr, button.repr, x.repr, y.repr, xroot.repr, yroot.repr, kind.repr])
@@ -174,34 +168,23 @@ $1.received_event((UiEvent(
 macro motioncb*(x, y, xroot, yroot, native: untyped) =
   result = parse_stmt("""
 $1.received_event((UiEvent(
-  event_mod: UiEventMotion,
+  kind: UiEventMouseMotion,
   button: -1,
   x: $2,
   y: $3,
   xroot: $4,
   yroot: $5,
-  w: -1,
-  h: -1,
-  key: -1,
-  ch: "",
   native: $1)))
- 
 """ % [native.repr, x.repr, y.repr, xroot.repr, yroot.repr])
 
 macro resizecb*(width, height, native: untyped) =
   result = parse_stmt("""
 $1.received_event((UiEvent(
-  event_mod: UiEventResize,
-  button: -1,
+  kind: UiEventResize,
   x: -1,
   y: -1,
-  xroot: -1,
-  yroot: -1,
   w: $2,
   h: $3,
-  key: -1,
-  ch: "",
   native: $1)))
- 
 """ % [native.repr, width.repr, height.repr])
 

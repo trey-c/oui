@@ -25,54 +25,54 @@ var
 proc draw(node: UiNode)
 
 proc top*(node: UiNode): UiAnchor =
-  UiAnchor node.y
+  UiAnchor node.y - node.padding_bottom
 
 proc set_top*(node: UiNode, top: UiAnchor) =
   node.top_anchored = true
   if node.parent != nil:
     if float32(node.parent.top) == float32 top:
-      node.y = 0
+      node.y = node.padding_top
       return
  
-  node.y = float32 top
+  node.y = (float32 top) + node.padding_top
 
 proc left*(node: UiNode): UiAnchor =
-  UiAnchor node.x
+  UiAnchor node.x + node.padding_right
 
 proc set_left*(node: UiNode, left: UiAnchor) =
   node.left_anchored = true
   if node.parent != nil:
     if float32(node.parent.left) == float32 left:
-      node.x = 0
+      node.x = node.padding_left
       return
 
-  node.x = float32 left
+  node.x = (float32 left) - node.padding_left
 
 proc right*(node: UiNode): UiAnchor =
-  UiAnchor(node.w)
+  UiAnchor(node.w + node.padding_left)
 
 proc set_right*(node: UiNode, right: UiAnchor) =
   if node.left_anchored:
-    node.w = (float32 right) - node.x
+    node.w = (float32 right) - node.x - node.padding_right
   else:
     if node.parent != nil:
       if float32(node.parent.right) == float32 right:
-        node.x = node.parent.w - node.w
+        node.x = node.parent.w - node.w - node.padding_right
         return
-    node.x = (float32 right) - node.w 
+    node.x = (float32 right) - node.w - node.padding_right
 
 proc bottom*(node: UiNode): UiAnchor =
-  UIAnchor(node.h)
+  UIAnchor(node.h + node.padding_top)
 
 proc set_bottom*(node: UiNode, bottom: UiAnchor) =
   if node.top_anchored:
-    node.h = (float32 bottom) - node.y
+    node.h = (float32 bottom) - node.y - node.padding_bottom
   else:
     if node.parent != nil:
       if float32(node.parent.bottom) == float32 bottom:
-        node.y = node.parent.h - node.h
+        node.y = node.parent.h - node.h - node.padding_bottom
         return
-    node.y = (float32 bottom) - node.h
+    node.y = (float32 bottom) - node.h - node.padding_bottom
 
 proc name*(node: UiNode, detailed: bool = false): string =
   result = node.id & " (" & $node.kind & ")"
@@ -85,11 +85,11 @@ proc trigger_update_attributes*(node: UiNode) =
   ## all its children. Also causing layouts to arrange
   for ua in node.update_attributes:
     ua(node, node.parent)
+  if node.kind == UiLayout:
+    for al in node.arrange_layout:
+      al(node, node.parent)
   for child in node.children:
     child.trigger_update_attributes()
-  if node.kind == UiLayout:
-    if node.arrange_layout != nil:
-      node.arrange_layout()
 
 proc axis_alignment(node: UiNode, inkw, inkh: float32): tuple[x, y: float32] =
   const padding = 5
@@ -117,6 +117,8 @@ proc force_children_to_redraw(node: UiNode) =
 
 proc draw_children(node: UiNode, ctx: ptr Context) =
   for child in node.children:
+    if child.visible == false:
+      continue
     ctx.save()
     ctx.translate(child.x, child.y)
     child.draw()
@@ -157,7 +159,7 @@ proc draw(node: UiNode) =
       ctx.fill()
     of UiBox:
       draw_rounded_rectangle(ctx, node.color, node.opacity, 0f, 0f,
-          node.w, node.h, node.radius)
+          node.w, node.h, node.radius, node.border_width, node.border_color)
     of UiText:
       var
         pixels = text_pixel_size(ctx, node.str, node.family)
@@ -185,12 +187,30 @@ proc contains*(node: UiNode, x, y: float32): bool =
   node.x < x and x < (node.x + node.w ) and 
     y > node.y and y < (node.y + node.h)
 
+proc handle_event*(window, node: UiNode, ev: var UiEvent)
+
+template handle_event_offset(window, child: UiNode, ev: var UiEvent) =
+  var
+    tmpx = ev.x
+    tmpy = ev.y
+  ev.x = ev.x - int child.x
+  ev.y = ev.y - int child.y
+  window.handle_event(child, ev)
+  ev.x = tmpx
+  ev.y = tmpy
+
 proc request_focus*(node, target: UiNode) =
   assert node.kind == UiWindow
   if node.focused_node != nil:
     node.focused_node.has_focus = false
+    var e = UiEvent(kind: UiEventUnfocus, x: 0, y: 0, native: node.native)
+    node.handle_event_offset(node.focused_node, e)
+
   node.focused_node = target
   target.has_focus = true
+  var e = UiEvent(kind: UiEventFocus, x: 0, y: 0, native: node.native)
+  node.handle_event_offset(target, e)
+
   ouidebug "focus given to " & target.name
 
 proc needs_redraw*(node: UiNode, from_parent: bool = false) =
@@ -218,42 +238,27 @@ proc resize*(node: UiNode, w, h: float32) =
     node.h = h
     node.queue_redraw()
 
-template handle_event_offset(window, child: UiNode, ev: var UiEvent) =
-  var
-    tmpx = ev.x
-    tmpy = ev.y
-  ev.x = ev.x - int child.x
-  ev.y = ev.y - int child.y
-  window.handle_event(n, ev)
-  ev.x = tmpx
-  ev.y = tmpy
-
 proc handle_event*(window, node: UiNode, ev: var UiEvent) =
-  ouidebug node.name() & " received an "  & $ev.event_mod
   for on_ev in node.on_event:
     on_ev(node, node.parent, ev)
   for n in node.children:
     if n.visible == false or n.animating:
       continue
     if n.contains(float32(ev.x), float32(ev.y)) or n.has_focus:
-      if ev.event_mod == UiEventPress and ev.button == 1:
-        if n.wants_focus and n.has_focus == false:
+      if ev.kind == UiEventMousePress and ev.button == 1:
+        if n.accepts_focus and n.has_focus == false:       
           window.request_focus(n)
-
+         
       if n.hovered == false:
         n.hovered = true
-        var tmp = ev.event_mod
-        ev.event_mod = UiEventEnter
-        window.handle_event_offset(n, ev)
-        ev.event_mod = tmp
+        var e = UiEvent(kind: UiEventEnter, x: ev.x, y: ev.y, native: ev.native)
+        window.handle_event_offset(n, e)
       window.handle_event_offset(n, ev)
     else:
       if n.hovered:
         n.hovered = false
-        var tmp = ev.event_mod
-        ev.event_mod = UiEventLeave
-        window.handle_event_offset(n, ev)
-        ev.event_mod = tmp
+        var e = UiEvent(kind: UiEventLeave, x: ev.x, y: ev.y, native: ev.native)
+        window.handle_event_offset(n, e)
 
 proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
   result = UiNode(kind: k,
@@ -270,7 +275,7 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     update_attributes: @[],
     on_event: @[],
     draw_post: @[],
-    wants_focus: true,
+    accepts_focus: false,
     index: -1,
     table: nil,
     children: @[],
@@ -288,22 +293,29 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     var window = result
     result.native.received_event = proc(ev: UiEvent) {.gcsafe.} =
       var tmp = ev
-      if ev.event_mod == UiEventResize:
+      if ev.kind == UiEventResize:
         window.native.width = ev.w
         window.native.height = ev.h
         window.needs_redraw()
         window.resize(float32 ev.w, float32 ev.h)
-      elif ev.event_mod == UiEventExpose:
+      elif ev.kind == UiEventExpose:
         window.needs_redraw()
         window.draw()
         if window.surface != nil:
           window.native.ctx.set_source(window.surface, 0f, 0f)
           window.native.ctx.paint()
         window.need_redraw = false
+      elif ev.kind == UiEventKeyPress:
+        if ev.key == 16:
+          tmp.shift_state = true
+        window.handle_event(window, tmp)
+      elif ev.kind == UiEventKeyRelease:
+        if ev.key == 16:
+          tmp.shift_state = false
+        window.handle_event(window, tmp)
       else:
-       window.handle_event(window, tmp)
+        window.handle_event(window, tmp)
   if result.kind == UiText:
-    result.wants_focus = false
     result.valign = UiCenter
     result.halign = UiCenter
 

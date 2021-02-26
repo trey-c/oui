@@ -15,6 +15,7 @@
 
 import macros, strutils, colors, cairo
 import types, node, utils
+import testmyway
 
 var
   ctx*: ptr Context
@@ -29,7 +30,7 @@ macro node_next_parent(id: untyped, delegate: bool = false) =
   var current_parent = if parents.len > 0: parents[parents.high] else: new_nil_lit()
   if current_parent.kind != nnkNilLit and delegate.bool_val == false:
     result = quote do:
-      parent.add(`id`) 
+      parent.add(`id`)
   parents.add(id)
 
 template node*(id: untyped, kind: UiNodeKind, inner: untyped,
@@ -145,50 +146,35 @@ template bottom*(anchor: UiAnchor) =
 template right*(anchor: UiAnchor) =
   self.set_right anchor
 
-template margin_top*(m: float32) =
-  self.margin_top = m
+template padding_top*(t: float32) =
+  self.padding_top = t
 
-template margin_left*(m: float32) =
-  self.margin_left = m
+template padding_left*(l: float32) =
+  self.padding_left = l
 
-template margin_bottom*(m: float32) =
- self.margin_bottom = m
+template padding_bottom*(b: float32) =
+ self.padding_bottom = b
 
-template margin_right*(m: float32) =
-  self.margin_right = m
+template padding_right*(r: float32) =
+  self.padding_right = r
 
-template margin*(top, left, bottom, right: float32) =
-  self.margin_top = top
-  self.margin_left = left
-  self.margin_bottom = bottom
-  self.margin_right = right
+template padding*(top, left, bottom, right: float32) =
+  self.padding_top = top
+  self.padding_left = left
+  self.padding_bottom = bottom
+  self.padding_right = right
 
-template border_top*(m: float32) =
-  self.border_top = m
-
-template border_left*(m: float32) =
-  self.border_left = m
-
-template border_bottom*(m: float32) =
-  self.border_bottom = m
-
-template border_right*(m: float32) =
-  self.border_right = m
-
-template border*(top, left, bottom, right: float32) =
-  self.border_top = top
-  self.border_left = left
-  self.border_bottom = bottom
-  self.border_right = right
+template border_width*(t: float32) =
+  self.border_width = t
 
 template border_color*(c: Color) =
-  self.color = c
+  self.border_color = c
 
 template border_color*(r, g, b: int = 255) =
-  self.color = rgb(r, g, b)
+  self.border_color = rgb(r, g, b)
 
 template border_color*(c: string) =
-  self.color = parse_color(c)
+  self.border_color = parse_color(c)
 
 template color*(c: Color) =
   self.color = c
@@ -251,6 +237,9 @@ template spacing*(s: float32) =
 template src*(s: string) =
   self.src = s
 
+template accepts_focus*(af: bool) =
+  self.accepts_focus = af
+
 template update*(inner: untyped) =
   self.update_attributes.add proc(s, p: UiNode) {.closure.} =
     self = s
@@ -265,100 +254,134 @@ template events*(inner: untyped) =
     `inner`
 
 template key_press*(inner: untyped) =
-  if event.event_mod == UiEventPress and event.key != -1:
+  if event.kind == UiEventKeyPress and event.key != -1:
     `inner`
 
 template key_release*(inner: untyped) =
-  if event.event_mod == UiEventRelease and event.key != -1:
+  if event.kind == UiEventKeyRelease and event.key != -1:
     `inner`
 
 template button_press*(inner: untyped) =
-  if event.event_mod == UiEventPress and event.button != -1:
+  if event.kind == UiEventMousePress and event.button != -1:
     `inner`
 
 template button_release*(inner: untyped) =
-  if event.event_mod == UiEventRelease and event.button != -1:
+  if event.kind == UiEventMouseRelease and event.button != -1:
     `inner`
 
 template mouse_motion*(inner: untyped) =
-  if event.event_mod == UiEventMotion:
+  if event.kind == UiEventMouseMotion:
     `inner`
 
 template mouse_enter*(inner: untyped) =
-  if event.event_mod == UiEventEnter:
+  if event.kind == UiEventEnter:
     `inner`
 
 template mouse_leave*(inner: untyped) =
-  if event.event_mod == UiEventLeave:
+  if event.kind == UiEventLeave:
+    `inner`
+
+template focus*(inner: untyped) =
+  if event.kind == UiEventFocus:
+    `inner`
+
+template unfocus*(inner: untyped) =
+  if event.kind == UiEventUnfocus:
     `inner`
 
 template arrange_layout*(inner: untyped) =
-  self.arrange_layout = proc() {.closure.} =
+  self.arrange_layout.add proc(s, p: UiNode) {.closure.} =
+    self = s
+    parent = p
     `inner`
 
-when defined(testmyway) and is_main_module:
-  import unittest
-  suite "sugarsyntax":
-    test "children":
-      box box1:
-        box box2:
-          box box3:
-            discard
-          box box4:
-            discard
-        box box5:
+test_my_way "sugarsyntax":
+  test "children":
+    box box1:
+      box box2:
+        box box3:
           discard
-
-        box box6:
-          box box7:
-            discard
+        box box4:
+          discard
+      box box5:
+        discard
+      box box6:
+        box box7:
+          discard
+        box:
+          discard
+        box:
           box:
             discard
-          box:
-            box:
-              discard
-            box: 
-              discard
-            check self.children.len == 2
+          box: 
+            discard
+          check self.children.len == 2
 
-      check box1.children.len == 3
-      check box2.children.len == 2
-      check box3.children.len == 0
-      check box4.children.len == 0
-      check box5.children.len == 0
-      check box6.children.len == 3
-      check box7.children.len == 0
+    check box1.children.len == 3
+    check box2.children.len == 2
+    check box3.children.len == 0
+    check box4.children.len == 0
+    check box5.children.len == 0
+    check box6.children.len == 3
+    check box7.children.len == 0
 
-    test "attributes":
+  test "attributes":
+    box:
+      w 10
+      h 10
+      size self.w * 2, self.h * 2
+      check self.w == 20
+      check self.h == 20
+      
+      top self.top
+      left self.left
+      bottom self.bottom
+      right self.right
+      padding 10, 0, 10, 0
+      padding_left 10
+      padding_right 10
+      padding_top 10
+      padding_bottom 10
+      
+      color "#eeeeee"
+      color 255, 255, 255
+      color self.color
+      
+      border_color "#eeeeee"  
+      border_color 255, 255, 255
+      border_color self.border_color
+      opacity 0.5
+      radius 5
+    text:
+      fill self
+      vcenter self
+      hcenter self
+      center self
+      valign UiBottom
+      halign UiRight
+      accepts_focus true
+      str "something else"
+      family "something else x3"
+      visible true
+    window:
+      title "something"
+    image:
+      src "text.png"
+
+  test "layout":
+    layout testlayout:
+      arrange_layout:
+        check self.id == "testlayout"
+        check self.children.len == 2
+        self.children[0].w = 40
+      box testbox:
+        update:
+          w 20
+          h 20
       box:
-        w 10
-        h 10
-        size self.w * 2, self.h * 2
-        check self.w == 20
-        check self.h == 20
-        
-        top self.top
-        left self.left
-        bottom self.bottom
-        right self.right
+        discard
 
-        color "#eeeeee"
-        color 255, 255, 255
-        color self.color
-        opacity 0.5
-        radius 5
-      text:
-        fill self
-        vcenter self
-        hcenter self
-        center self
-        valign UiBottom
-        halign UiRight
-
-        str "something else"
-        family "something else x3"
-        visible true
-      window:
-        title "something"
-      image:
-        src "text.png"
+    testlayout.trigger_update_attributes()
+    check self.children[0].id == "testbox"
+    check self.children[0].w == 40
+    check self.children[0].h == 20

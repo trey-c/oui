@@ -42,6 +42,7 @@ proc slide_node*(node, target: UiNode, direction: UiAlignment) {.async.} =
     count = 0.0
     newx = 0.0
   animate_via_delta newx <= self.w, 2:
+    target.visible = true
     count += 1
     if direction == UiRight:
       newx = dt + count * 0.05
@@ -49,7 +50,7 @@ proc slide_node*(node, target: UiNode, direction: UiAlignment) {.async.} =
       newx = dt - count * 0.05
     target.x = newx
     echo newx
-    target.queue_redraw(true)
+    node.queue_redraw(true)
   do:  
     target.x = old
     node.queue_redraw(true)
