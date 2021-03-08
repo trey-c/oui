@@ -48,11 +48,13 @@ template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
     tmp = tmp + child.`size` + node.spacing
 
 template stack_switch*(node, target: UiNode, animate: untyped) =
+  node.trigger_update_attributes()
   for n in node.children:
-    n.visible = false
+    if n.visible:
+      n.hide()
   for n in node.children:
     if n == target:
-      n.visible = true
+      n.show()
       animate
       break
   node.queue_redraw()
@@ -93,8 +95,6 @@ decl_widget textbox, box:
   password: bool = false
   style: TextboxStyle = textbox_style
 do:
-  var
-    this {.gensym.} = self
   accepts_focus true
   border_width 2
   radius 10
@@ -106,7 +106,6 @@ do:
     update:
       str textstr
       fill parent
-  self = this
   events:
     focus:
       border_color style.border_focus
@@ -115,8 +114,8 @@ do:
       border_color style.border_normal
       self.queue_redraw()
     key_press:
-      text_box_key_press(textstr, event, event.ch, password, this.has_focus)
-      this.queue_redraw()
+      text_box_key_press(textstr, event, event.ch, password, self.has_focus)
+      self.queue_redraw()
 
 decl_widget row, layout:
   discard
@@ -130,38 +129,26 @@ do:
   arrange_layout:
     arrange_row_or_column(x, w, id)
 
-decl_widget swipe_view, layout:
+decl_widget scrollable, layout:
   discard
 do:
   var 
     swipeing {.gensym.} = false 
-    yoffset {.gensym.} = 0
+    yoffset {.gensym.} = 1
     pos {.gensym.} = (x: 0, y: 0)
   arrange_layout:
     for child in self.children:
-      child.x = self.x
-      child.y = self.y + float32 yoffset
+      child.y = float32 yoffset
   events:
     button_press:
-      case event.button:
-      of 5:
-        yoffset = yoffset - 5
-        self.queue_redraw()
-      of 4:
-        yoffset = yoffset + 5
-        self.queue_redraw()
-      of 1:
-        swipeing = true
-        pos.x = event.x
-        pos.y = event.y
-      else:
-        discard
-  button_release:
-    if event.button == 1:
+      swipeing = true
+      if event.button == 5:
+        yoffset = yoffset + 3
+      elif event.button == 4:
+        yoffset = yoffset - 3
+      self.queue_redraw()
+    button_release:
       swipeing = false
-  mouse_motion:
-    if swipeing:
-      yoffset = yoffset + (pos.y - event.y)
 
 decl_widget list, layout:
   discard

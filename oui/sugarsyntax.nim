@@ -118,6 +118,15 @@ decl_ui_node canvas, UiCanvas
 decl_ui_node layout, UiLayout
 decl_ui_node image, UiImage
 
+template correct_self(s, p: UiNode, inner: untyped) =
+  var tmpself = self
+  var tmpparent = parent
+  self = s
+  parent = p
+  `inner`
+  self = tmpself
+  parent = tmpparent
+
 template table*(m: UiTable) =
   node_self().set_table m
 
@@ -130,9 +139,9 @@ template delegate*(call: untyped, kind: UiNodeKind, inner: untyped) =
     return delegate
 
 template paint*(inner: untyped) =
-  self.paint = proc(tmpctx: ptr Context) {.closure.} =
+  self.paint.add proc(s, p: Uinode, tmpctx: ptr Context) {.closure.} =
     ctx = tmpctx
-    `inner`
+    correct_self(s, p, inner)
 
 template top*(anchor: UiAnchor) =
   self.set_top anchor
@@ -242,31 +251,27 @@ template accepts_focus*(af: bool) =
 
 template update*(inner: untyped) =
   self.update_attributes.add proc(s, p: UiNode) {.closure.} =
-    self = s
-    parent = p
-    `inner`
+    correct_self(s, p, inner)
 
 template events*(inner: untyped) =
   self.on_event.add proc(s, p: UiNode, e: var UiEvent) {.closure.} =
     event = e
-    self = s
-    parent = p
-    `inner`
+    correct_self(s, p, inner)
 
 template key_press*(inner: untyped) =
-  if event.kind == UiEventKeyPress and event.key != -1:
+  if event.kind == UiEventKeyPress:
     `inner`
 
 template key_release*(inner: untyped) =
-  if event.kind == UiEventKeyRelease and event.key != -1:
+  if event.kind == UiEventKeyRelease:
     `inner`
 
 template button_press*(inner: untyped) =
-  if event.kind == UiEventMousePress and event.button != -1:
+  if event.kind == UiEventMousePress:
     `inner`
 
 template button_release*(inner: untyped) =
-  if event.kind == UiEventMouseRelease and event.button != -1:
+  if event.kind == UiEventMouseRelease:
     `inner`
 
 template mouse_motion*(inner: untyped) =
@@ -291,9 +296,7 @@ template unfocus*(inner: untyped) =
 
 template arrange_layout*(inner: untyped) =
   self.arrange_layout.add proc(s, p: UiNode) {.closure.} =
-    self = s
-    parent = p
-    `inner`
+    correct_self(s, p, inner)
 
 test_my_way "sugarsyntax":
   test "children":
@@ -373,15 +376,19 @@ test_my_way "sugarsyntax":
       arrange_layout:
         check self.id == "testlayout"
         check self.children.len == 2
+        check self.children[0].id == "testbox"
         self.children[0].w = 40
+        self.children[0].h = 20
       box testbox:
         update:
           w 20
-          h 20
       box:
         discard
+      
+      check self.id == "testlayout"
 
-    testlayout.trigger_update_attributes()
-    check self.children[0].id == "testbox"
-    check self.children[0].w == 40
-    check self.children[0].h == 20
+      self.trigger_update_attributes()
+      check self.children.len == 2
+      check self.children[0].id == "testbox"
+      check self.children[0].w == 20
+      check self.children[0].h == 20

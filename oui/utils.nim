@@ -13,7 +13,8 @@
 # limitations under the License.
 
 
-import colors, strutils
+import colors, strutils, terminal
+export terminal
 import cairo, private/[pango, glib2]
 import types
 
@@ -72,7 +73,7 @@ template text_vars(ctx: ptr Context, text, family: string) {.dirty.} =
   layout.set_text(cstring text, -1)
 
 template text_vars_free() =
-  layout.free()
+  g_object_unref layout
   font_desc.free()
 
 proc text_pixel_size*(ctx: ptr Context, text, family: string): tuple[w, h: float32] =
@@ -111,6 +112,11 @@ proc str_to_camel_case*(
       result.add(c)
 
 template ouidebug*[T](t: T) =
-  ## Wraps `echo` to remove the statement when -d:ouidebug isn't defined
+  ## Wraps `styled_echo` to remove the statement when -d:ouidebug isn't defined
   when defined ouidebug: 
-    echo t
+    styled_echo fgGreen, "ouidebug  ", resetStyle, t
+
+template ouiwarning*[T](t: T) =
+  ## Wraps `styled_echo` to remove the statement when -d:ouidebug isn't defined
+  when defined ouidebug: 
+    styled_echo fgYellow, "ouiwarning ", resetStyle, t

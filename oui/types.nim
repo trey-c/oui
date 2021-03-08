@@ -80,6 +80,9 @@ type
   ArrangeLayoutCb* = proc(self, parent: UiNode)
   OnEventCb* = proc(self, parent: UiNode, event: var UiEvent)
   DrawPostCb* = proc()
+  PaintCb* = proc(self, parent: UiNode, ctx: ptr cairo.Context)
+  ShownCb* = proc()
+  HiddenCb* = proc()
 
   UiNodeKind* = enum
     UiWindow, UiBox, UiText,
@@ -93,11 +96,13 @@ type
     x*, y*, w*, h*: float32
     padding_top*, padding_left*, padding_bottom*, padding_right*: float32
     table*: UiTable
-    clip*, visible*, hovered*, has_focus*, accepts_focus*, animating*,
-        need_redraw*, force_redraw*: bool
+    visible*, force_redraw*, animating*: bool
+    hovered*, has_focus*, accepts_focus*: bool
     update_attributes*: seq[UpdateAttributesCb]
     on_event*: seq[OnEventCb]
     draw_post*: seq[DrawPostCb]
+    on_shown*: seq[ShownCb]
+    on_hidden*: seq[HiddenCb]
     index*: int
     color*: colors.Color
     opacity*: range[0f..1f]
@@ -117,7 +122,7 @@ type
       str*, family*: string
       valign*, halign*: UiAlignment
     of UiCanvas:
-      paint*: proc(ctx: ptr cairo.Context)
+      paint*: seq[PaintCb]
     of UiLayout:
       spacing*: float32
       delegates: seq[UiNode]

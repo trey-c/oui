@@ -36,21 +36,21 @@ template animate_via_delta(cond: untyped, speed: float32 = 0.001, inner, finishe
   finished
 
 proc slide_node*(node, target: UiNode, direction: UiAlignment) {.async.} =
-  node.animating = true
   var 
     old = target.x
     count = 0.0
     newx = 0.0
+
+  node.animating = true
   animate_via_delta newx <= self.w, 2:
     target.visible = true
-    count += 1
+    count += 10
     if direction == UiRight:
-      newx = dt + count * 0.05
+      newx = count * dt
     elif direction == UiLeft:
-      newx = dt - count * 0.05
+      newx = count * dt
     target.x = newx
-    echo newx
-    node.queue_redraw(true)
+    node.queue_redraw(false)
   do:  
     target.x = old
     node.queue_redraw(true)

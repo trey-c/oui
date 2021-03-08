@@ -13,6 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-{.passL: "-lcairo-gl".}
+import oui/ui
+import oui/animation
 
-# TODO: what he said
+window app:
+  size 600, 600
+  color "#cccccc"
+  column:
+    spacing 10
+    update:
+      fill parent
+    for i in 1..5:
+      box:
+        color "#0000ff"
+        w 50
+        h 100 * float i
+        border_color "#000000"
+        border_width 4
+        events:
+          button_press:
+            async_check parent.slide_node(self, UiRight)
+app.show()  
+oui_main()

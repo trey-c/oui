@@ -44,6 +44,14 @@ template demo_sidebar() =
         w parent.w
         h 50
     do: mytxt
+    textbox:
+      update:
+        bottom tt.top
+        padding_bottom 10
+        w parent.w
+        h 50
+    do: mytxt
+
 
 template demo_content() =
   box content:
@@ -57,7 +65,7 @@ template demo_content() =
       color "#ff0000"
       update:
         right parent.right
-        size 200, 200
+        w 200
       box:
         color "#0f0f0f"
         update:
@@ -65,14 +73,13 @@ template demo_content() =
           h 100
 
     button mrbox:
-      color "#555444"
       var count = 0
       update:
         w 200
         h 50
         right parent.right
-      text:
-        color "#ff0000"
+      text mysicktext:
+        color "#111111"
         update:
           fill parent
           h 50
@@ -81,7 +88,7 @@ template demo_content() =
         button_press:
           count.inc
           echo "Button with counter clicked"
-          parent.queue_redraw()
+          self.queue_redraw()
 
 window app:
   title "Demo"

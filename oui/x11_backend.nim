@@ -123,8 +123,7 @@ proc main_x11*() =
     of ButtonPress, ButtonRelease:
       var native = native_from_xwindow(event.xbutton.window)
       assert native.isNil() == false
- 
-      if event.theType == ButtonPress: 
+      if event.theType == ButtonPress or event.xbutton.button == 4 or event.xbutton.button == 5: 
         buttoncb(UiEventMousePress, int event.xbutton.button, int event.xbutton.x, int event.xbutton.y, int event.xbutton.xroot,
           int event.xbutton.yroot, native)
       elif event.theType == ButtonRelease:

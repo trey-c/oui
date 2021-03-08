@@ -58,8 +58,14 @@ proc handle_message(hwnd: HWND, msg: UINT, wparam: WPARAM,
     lparam: LPARAM): LRESULT {.stdcall.} =
   var native = native_from_hwnd(hwnd)
   case msg:
-  of WM_MOUSEACTIVATE, WM_CAPTURECHANGED:
-    discard
+  of WM_MOUSEWHEEL:
+    var delta = cast[int](GET_WHEEL_DELTA_WPARAM(wparam))
+    if delta >  0:
+       buttoncb(UiEventMousePress, 4, cast[int](
+          GET_X_LPARAM(lparam)), cast[int](GET_Y_LPARAM(lparam)), -1, -1, native)
+    else:
+      buttoncb(UiEventMousePress, 5, cast[int](
+          GET_X_LPARAM(lparam)), cast[int](GET_Y_LPARAM(lparam)), -1, -1, native)
   of WM_SIZE:
     var r: RECT
     native.hwnd.GetClientRect(addr r)

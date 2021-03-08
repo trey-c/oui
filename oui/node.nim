@@ -90,6 +90,12 @@ proc trigger_update_attributes*(node: UiNode) =
       al(node, node.parent)
   for child in node.children:
     child.trigger_update_attributes()
+  
+  when not defined release:
+    if node.w <= 0:
+      ouiwarning node.name() & " width is " & $node.w
+    if node.h <= 0:
+      ouiwarning node.name() & " height is " & $node.h
 
 proc axis_alignment(node: UiNode, inkw, inkh: float32): tuple[x, y: float32] =
   const padding = 5
@@ -115,6 +121,11 @@ proc force_children_to_redraw(node: UiNode) =
     n.force_redraw = true
     n.force_children_to_redraw()
 
+proc force_parents_to_redraw(node: UiNode) =
+  node.force_redraw = true
+  if node.parent != nil:
+    node.parent.force_parents_to_redraw()
+
 proc draw_children(node: UiNode, ctx: ptr Context) =
   for child in node.children:
     if child.visible == false:
@@ -126,32 +137,19 @@ proc draw_children(node: UiNode, ctx: ptr Context) =
     ctx.paint()
     ctx.restore()
 
-proc speed_up_drawing(node: UiNode): bool = 
-  if node.w == node.oldw and node.h == node.oldh and node.force_redraw == false:
-    if node.surface != nil:
-      node.need_redraw = false
-      var ctx = node.surface.create()
-      node.draw_children(ctx)
-      ctx.destroy()
-      return true
-  elif node.w != node.oldw and node.h != node.oldh and node.force_redraw == true:
-      node.force_children_to_redraw()
+proc draw(node: UiNode) =
+  if (node.w == node.oldw and node.h == node.oldh) and node.force_redraw == false:
+    ouidebug "speed drawing " & node.name()
+    return  
+  ouidebug "slow drawing " & $node.name(true)
   node.oldw = node.w
   node.oldh = node.h
-  false
-
-proc draw(node: UiNode) =
-  if node.speed_up_drawing():
-    return
-  
   if node.surface != nil:
     node.surface.destroy()
     node.surface = nil
-
-  ouidebug "drawing " & $node.name(true)
   node.surface = image_surface_create(FormatArgb32, int32 node.w, int32 node.h)
+  
   var ctx = node.surface.create()
-  ctx.save()
   case node.kind:
     of UiWindow:
       ctx.set_source_color(node.color,  node.opacity)
@@ -166,21 +164,19 @@ proc draw(node: UiNode) =
         align = node.axis_alignment(pixels.w, pixels.h)
       draw_text(ctx, node.str, node.family, node.color, node.opacity, align.x, align.y)
     of UiCanvas:
-      if node.paint.isNil() == false:
         ctx.save()
-        node.paint(ctx)
+        for p in node.paint:
+          p(node, node.parent, ctx)
         ctx.restore()
     of UiImage:
       draw_png(ctx, node.src, 0, 0, node.w, node.h)
     else:
       discard
-  ctx.restore()
   node.draw_children(ctx)
   for draw_post in node.draw_post:
     if draw_post.isNil() == false:
       draw_post()
   ctx.destroy()
-  node.need_redraw = false
   node.force_redraw = false
 
 proc contains*(node: UiNode, x, y: float32): bool =
@@ -213,23 +209,12 @@ proc request_focus*(node, target: UiNode) =
 
   ouidebug "focus given to " & target.name
 
-proc needs_redraw*(node: UiNode, from_parent: bool = false) =
-  ## Marks the node and all it's children for a redraw. note: does not
-  ## actually redraw right away; use queue_redraw instead
-  node.need_redraw = true
-  if from_parent == false:
-    for n in node.children:
-      needs_redraw(n)
-  if node.parent != nil:
-    node.parent.needs_redraw(true)
-
 proc queue_redraw*(target: UiNode = nil, update: bool = true) =
   if update:
     target.trigger_update_attributes()
-  target.force_redraw = true
+  target.force_parents_to_redraw()
   if target.kind != UiWindow:
     target.force_children_to_redraw()
-    target.needs_redraw()
   target.window.native.expose()
 
 proc resize*(node: UiNode, w, h: float32) =
@@ -239,11 +224,13 @@ proc resize*(node: UiNode, w, h: float32) =
     node.queue_redraw()
 
 proc handle_event*(window, node: UiNode, ev: var UiEvent) =
+  if node.animating:
+    return
   for on_ev in node.on_event:
     on_ev(node, node.parent, ev)
   for n in node.children:
     if n.visible == false or n.animating:
-      continue
+      break
     if n.contains(float32(ev.x), float32(ev.y)) or n.has_focus:
       if ev.kind == UiEventMousePress and ev.button == 1:
         if n.accepts_focus and n.has_focus == false:       
@@ -268,9 +255,7 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     w: 0f,
     h: 0f,
     visible: true,
-    clip: false,
     animating: false,
-    need_redraw: false,
     force_redraw: false,
     update_attributes: @[],
     on_event: @[],
@@ -296,15 +281,13 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
       if ev.kind == UiEventResize:
         window.native.width = ev.w
         window.native.height = ev.h
-        window.needs_redraw()
         window.resize(float32 ev.w, float32 ev.h)
       elif ev.kind == UiEventExpose:
-        window.needs_redraw()
+        window.trigger_update_attributes()
         window.draw()
         if window.surface != nil:
           window.native.ctx.set_source(window.surface, 0f, 0f)
           window.native.ctx.paint()
-        window.need_redraw = false
       elif ev.kind == UiEventKeyPress:
         if ev.key == 16:
           tmp.shift_state = true
@@ -371,12 +354,24 @@ proc show*(node: UiNode) =
     set_window_attributes(node.native, node.is_popup)
     resize_window(node.native, int node.w, int node.h)
     show_window(node.native)
+
   node.visible = true
+  for s in node.on_shown:
+    s()
+  for child in node.children:
+    child.show()
 
 proc hide*(node: UiNode) =
   if node.kind == UiWindow:
     hide_window(node.native)
+  if node.surface != nil:
+    node.surface.destroy()
+    node.surface = nil
   node.visible = false
+  for h in node.on_hidden:
+    h()
+  for child in node.children:
+    child.hide()
 
 when defined(testing) and is_main_module:
   import unittest

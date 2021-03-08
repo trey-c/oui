@@ -1,0 +1,8 @@
+{
+  "pango": {
+    "url": "https://gitlab.gnome.org/GNOME/pango/-/archive/1.48.2/pango-1.48.2.tar.gz"
+  },
+  "cairo-1.17.4": {
+    "url": "https://gitlab.freedesktop.org/cairo/cairo/-/archive/1.17.4/cairo-1.17.4.tar.gz"
+  }
+}

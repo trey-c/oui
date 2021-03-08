@@ -81,6 +81,18 @@ proc exec_shell*(command, input: string = ""): bool =
       echo "\e[36m" & command & " | " & "\x1B[0m" & line
     result = false
 
+template run_shell_command*(cmd: string, exitcode: var int, inner: untyped) =
+  echo "executing > " & cmd
+  const opts = {poUsePath, poDaemon, poStdErrToStdOut, poEvalCommand}
+  var process = start_process(cmd, "", [], nil, opts)
+  for line {.inject.} in process.lines:
+    inner
+  exitcode = process.peek_exit_code()
+  process.close()
+
+proc base_dir*(): string =
+   normalized_path get_home_dir() & ".deploy"
+
 proc compile_dep(dir: string, commands: var seq[string]): bool =
   for command in commands:
     var 

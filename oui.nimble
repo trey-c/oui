@@ -1,4 +1,4 @@
-version = "0.1.3"
+version = "0.1.2"
 author = "Trey Cutter"
 description = "TODO"
 license = "Apache License 2.0"
