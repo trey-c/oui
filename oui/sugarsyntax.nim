@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import macros, strutils, colors, cairo
+import macros, strutils
+import nanovg except text
 import types, node, utils
 import testmyway
 
 var
-  ctx*: ptr Context
   parents* {.compileTime.}: seq[NimNode] = @[]
 
 macro node_init*(id: untyped, kind: UiNodeKind): untyped =
@@ -100,15 +100,16 @@ macro decl_widget*(name, base, params, inner: untyped) =
     var fparam = param
     fparam.delete(param.find(":"), param.len - 1)
     params_call_str.add ", " & fparam
-
   var cmd = nnkCommand.new_tree(base, ident("id"), inner)
   var strstmt = """
 template $1*(id, inner: untyped$2) = $3
   inner
 template $1*(inner: untyped$2) = 
   block:
-    $1 noid, inner$4
-  """ % [name.str_val, params_str, cmd.repr, params_call_str]
+    noid_with_counter "$1", "$4": 
+    $5
+  """ % [name.str_val, params_str, cmd.repr, params_call_str, inner.repr]
+  echo strstmt
   result = parse_stmt(strstmt)
 
 decl_ui_node window, UiWindow
@@ -128,10 +129,10 @@ template correct_self(s, p: UiNode, inner: untyped) =
   parent = tmpparent
 
 template table*(m: UiTable) =
-  node_self().set_table m
+  self.set_table m
 
 template delegate*(call: untyped, kind: UiNodeKind, inner: untyped) =
-  node_self().delegate = proc(tmptable: UiTable, tmpindex: int): UiNode =
+  self.delegate = proc(tmptable: UiTable, tmpindex: int): UiNode =
     var
       table {.inject.} = tmptable
       index {.inject.} = tmpindex
@@ -182,17 +183,11 @@ template border_color*(c: Color) =
 template border_color*(r, g, b: int = 255) =
   self.border_color = rgb(r, g, b)
 
-template border_color*(c: string) =
-  self.border_color = parse_color(c)
-
 template color*(c: Color) =
   self.color = c
 
 template color*(r, g, b: int = 255) =
   self.color = rgb(r, g, b)
-
-template color*(c: string) =
-  self.color = parse_color(c)
 
 template opacity*(o: range[0f..1f]) =
   self.opacity = o
@@ -228,8 +223,11 @@ template title*(str: string) =
 template str*(text: string) =
   self.str = text
 
-template family*(str: string) =
-  self.family = str
+template size*(s: float) =
+  self.size = s
+
+template face*(s: string) =
+  self.face = s
 
 template valign*(align: UiAlignment) =
   self.valign = align
@@ -249,9 +247,15 @@ template src*(s: string) =
 template accepts_focus*(af: bool) =
   self.accepts_focus = af
 
+template minw*(mw: float32) =
+  self.minw = mw
+
+template minh*(mh: float32) =
+  self.minh = mh
+
 template update*(inner: untyped) =
-  self.update_attributes.add proc(s, p: UiNode) {.closure.} =
-    correct_self(s, p, inner)
+  self.update_attributes.insert((proc(s, p: UiNode) {.closure.} =
+    correct_self(s, p, inner)), 0)
 
 template events*(inner: untyped) =
   self.on_event.add proc(s, p: UiNode, e: var UiEvent) {.closure.} =
@@ -297,6 +301,35 @@ template unfocus*(inner: untyped) =
 template arrange_layout*(inner: untyped) =
   self.arrange_layout.add proc(s, p: UiNode) {.closure.} =
     correct_self(s, p, inner)
+
+template border_top*(thickness: float32, inner: untyped) =
+  box bordertop:
+    update:
+      top parent.top
+      size parent.w, thickness
+      inner
+
+template border_left*(thickness: float32, inner: untyped) =
+  box borderleft:
+    update:
+      left parent.left
+      size thickness, parent.h
+      inner
+
+template border_right*(thickness: float32, inner: untyped) =
+  box borderright:
+    update:
+      top parent.top
+      right parent.right
+      size thickness, parent.h
+      inner
+
+template border_bottom*(thickness: float32, inner: untyped) =
+  box borderbottom:
+    update:
+      bottom parent.bottom
+      size parent.w, thickness
+      inner
 
 test_my_way "sugarsyntax":
   test "children":
@@ -346,15 +379,14 @@ test_my_way "sugarsyntax":
       padding_top 10
       padding_bottom 10
       
-      color "#eeeeee"
       color 255, 255, 255
       color self.color
-      
-      border_color "#eeeeee"  
       border_color 255, 255, 255
       border_color self.border_color
       opacity 0.5
       radius 5
+      minw 1
+      minh 1
     text:
       fill self
       vcenter self
@@ -364,10 +396,9 @@ test_my_way "sugarsyntax":
       halign UiRight
       accepts_focus true
       str "something else"
-      family "something else x3"
+      size 12
+      face "Sans"
       visible true
-    window:
-      title "something"
     image:
       src "text.png"
 
@@ -392,3 +423,39 @@ test_my_way "sugarsyntax":
       check self.children[0].id == "testbox"
       check self.children[0].w == 20
       check self.children[0].h == 20
+  
+  test "delegate":
+    layout testlayout:
+      delegate box, UiBox:
+        color 234, 234, 23
+    check testlayout.children.len == 0
+    testlayout.add_delegate(0)
+    check testlayout.children.len == 1
+    testlayout.add_delegate(1)
+    testlayout.add_delegate(2)
+    check testlayout.children.len == 3
+
+    check testlayout.children[0].index == 0
+    check testlayout.children[1].index == 1
+    check testlayout.children[2].index == 2
+  
+  test "min sizes":
+    box testbox:
+      minw 100
+      minh 100
+      w 10
+      h 10
+      update:
+        w 10
+        h 10
+    check testbox.w == 10
+    check testbox.h == 10
+    testbox.trigger_update_attributes()
+    check testbox.w == 100
+    check testbox.h == 100
+    testbox.minw = 0
+    testbox.minh = 0
+    testbox.trigger_update_attributes()
+    check testbox.w == 10
+    check testbox.h == 10
+

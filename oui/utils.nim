@@ -13,89 +13,41 @@
 # limitations under the License.
 
 
-import colors, strutils, terminal
+import strutils, terminal
 export terminal
-import cairo, private/[pango, glib2]
-import types
+import nanovg
 
-proc rectangle*(ctx: ptr Context, node: UiNode) =
-  ## Wraps cairo's rectangle using the node's geometry
-  ctx.rectangle(
-    node.x,
-    node.y,
-    node.w,
-    node.h)
+const FONT_SIZE_FACTOR* = 12
 
-proc set_source_color*(ctx: ptr Context, color: Color, opacity: range[0f..1f] = 1f) =
-  ## Wraps cairo's set_source_rgba using color and opacity
-  var rgb = extract_rgb(color)
-  ctx.set_source_rgba(rgb.r / 256,
-                      rgb.g / 256,
-                      rgb.b / 256,
-                      opacity)
-
-proc draw_png*(ctx: ptr Context, src: string, x, y, w, h: float) =
-  var 
-    img = image_surface_create_from_png(src)
-    imgw = float img.get_width()
-    imgh = float img.get_height()
-  ctx.scale(w / imgw, h / imgh)
-  ctx.set_source(img, x, y)
-  ctx.paint()
-  img.destroy()
-
-proc draw_rounded_rectangle*(ctx: ptr Context, color: Color, opacity, x, y, w,
-    h, rad, border_width: float32, border_color: Color) =
-  ctx.set_source_color(color, opacity)
-  var degrees = 3.14 / 180
-  ctx.new_sub_path()
-  ctx.arc(x + w - rad, y + rad, rad, -90 * degrees, 0 * degrees)
-  ctx.arc(x + w - rad, y + h - rad, rad, 0 * degrees, 90 * degrees)
-  ctx.arc(x + rad, y + h - rad, rad, 90 * degrees, 180 * degrees)
-  ctx.arc(x + rad, y + rad, rad, 180 * degrees, 270 * degrees)
-  ctx.close_path()
- 
-  var path = ctx.copy_path()
-  ctx.fill()
-  if border_width <= 0:
-    return
-  ctx.set_source_color(border_color, opacity)
-  ctx.append_path(path)
-  ctx.set_line_width(border_width)
-  ctx.stroke()
-  path.destroy()
-  
-template text_vars(ctx: ptr Context, text, family: string) {.dirty.} =
-  var
-    layout = pango_cairo_create_layout(ctx)
-    font_desc = font_description_from_string(cstring family)
-  layout.set_font_description(font_desc)
-  layout.set_text(cstring text, -1)
-
-template text_vars_free() =
-  g_object_unref layout
-  font_desc.free()
-
-proc text_pixel_size*(ctx: ptr Context, text, family: string): tuple[w, h: float32] =
-  text_vars(ctx, text, family)
-
-  var ink, logical: pango.TRectangle
-  layout.get_pixel_extents(addr ink, addr logical)
-  result.w = float32 ink.width
-  result.h = float32 ink.height
-
-  text_vars_free()
-
-proc draw_text*(ctx: ptr Context, text, family: string, color: Color, opacity,
+proc draw_text*(vg: NVGContext, text, face: string, color: Color, size,
     x, y: float32) =
-  text_vars(ctx, text, family)
+  vg.beginPath()
+  vg.fontSize(size * FONT_SIZE_FACTOR)
+  vg.fontFace(face)
+  vg.fillColor(color)
+  discard vg.text(x, y, text)
 
-  ctx.move_to(x, y)
-  ctx.set_source_color(color, opacity)
-  pango_cairo_update_layout(ctx, layout)
-  pango_cairo_show_layout(ctx, layout)
+proc text_pixel_size*(vg: NVGContext, text, face: string): tuple[w, h: float] =
+  (w: 35.0, h: 100.0)
 
-  text_vars_free()
+proc draw_rounded_rectangle*(vg: NVGContext, color: Color, opacity, x, y, w,
+    h, rad, border_width: float32, border_color: Color) =
+  vg.beginPath()
+  vg.roundedRect(x, y, w, h, rad)
+  vg.fillColor(color)
+  vg.fill()
+  
+  if border_width < 0:
+    return
+  vg.beginPath()
+  vg.roundedRect(x, y, w, h, rad)
+  vg.strokeColor(border_color)
+  vg.stroke()
+
+proc draw_image*(vg: NVGContext, path: string) =
+  vg.beginPath()
+  discard vg.createImage(path, {})
+  vg.fill()
 
 proc str_to_camel_case*(
   str: string): string =
@@ -120,3 +72,7 @@ template ouiwarning*[T](t: T) =
   ## Wraps `styled_echo` to remove the statement when -d:ouidebug isn't defined
   when defined ouidebug: 
     styled_echo fgYellow, "ouiwarning ", resetStyle, t
+
+template ouierror*[T](t: T) =
+  ## Wraps `styled_echo` with an error prefix
+  styled_echo fgRed, "ouierror ", resetStyle, t

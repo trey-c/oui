@@ -94,15 +94,17 @@ www.nim-lang.org/downloads
 You may grab the needed dependencies via `ouideploy` **coming very soon**
 
 ##### Linux (Ubuntu)
-
+`
 ```shell
 > sudo apt-get install cairo-devel pango-devel
 ```
 
 ##### Linux (Arch)
 
+
 ```shell
-> sudo pacman -S cairo pango
+> yay -S cairo-glesv2-bin
+> sudo pacman -S pango
 ```
 
 ##### Linux (OpenSUSE)

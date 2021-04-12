@@ -14,15 +14,17 @@
 # limitations under the License.
 
 
-import options, colors
-import cairo
-import types, backend, utils
+import options, colors, unicode
+import nanovg, private/gladgl, glfw
+import types, utils
+import testmyway
 
 var
   parent*, prev_parent*, self*: UiNode
   event*: UiEvent
+  windows*: seq[UiNode] = @[]
 
-proc draw(node: UiNode)
+proc draw(node: UiNode) {.gcsafe.}
 
 proc top*(node: UiNode): UiAnchor =
   UiAnchor node.y - node.padding_bottom
@@ -80,14 +82,20 @@ proc name*(node: UiNode, detailed: bool = false): string =
     result.add " | (x: " & $node.x & ", " & "y: " & 
       $node.y & ", w: " & $node.w & ", h: " & $node.h & ")" 
 
+proc contains*(node: UiNode, x, y: float32): bool =
+  node.x < x and x < (node.x + node.w ) and 
+    y > node.y and y < (node.y + node.h)
+
 proc trigger_update_attributes*(node: UiNode) =
   ## Calls `update_attributes` for `node`, followed by
   ## all its children. Also causing layouts to arrange
   for ua in node.update_attributes:
-    ua(node, node.parent)
+    {.cast(gcsafe).}:
+      ua(node, node.parent)
   if node.kind == UiLayout:
     for al in node.arrange_layout:
-      al(node, node.parent)
+      {.cast(gcsafe).}:
+        al(node, node.parent)
   for child in node.children:
     child.trigger_update_attributes()
   
@@ -126,85 +134,84 @@ proc force_parents_to_redraw(node: UiNode) =
   if node.parent != nil:
     node.parent.force_parents_to_redraw()
 
-proc draw_children(node: UiNode, ctx: ptr Context) =
+proc draw_children(node: UiNode, vg: NVGContext) =
   for child in node.children:
     if child.visible == false:
       continue
-    ctx.save()
-    ctx.translate(child.x, child.y)
+    if child.window == nil:
+      # Delegates don't get a window when being created?? thats why this is here
+      child.window = node.window 
+    vg.save()
+    vg.translate(child.x, child.y)
     child.draw()
-    ctx.set_source(child.surface, 0, 0)
-    ctx.paint()
-    ctx.restore()
+    vg.restore()
 
 proc draw(node: UiNode) =
   if (node.w == node.oldw and node.h == node.oldh) and node.force_redraw == false:
-    ouidebug "speed drawing " & node.name()
-    return  
-  ouidebug "slow drawing " & $node.name(true)
+    ouidebug "shoud be speed drawing " & node.name()
+  else:
+    ouidebug "slow drawing " & $node.name(true)
+
   node.oldw = node.w
   node.oldh = node.h
-  if node.surface != nil:
-    node.surface.destroy()
-    node.surface = nil
-  node.surface = image_surface_create(FormatArgb32, int32 node.w, int32 node.h)
-  
-  var ctx = node.surface.create()
+  var vg = node.window.vg
+  if vg == nil:
+    oui_error "vg is nil"
+  vg.save()
   case node.kind:
     of UiWindow:
-      ctx.set_source_color(node.color,  node.opacity)
-      ctx.rectangle(0f, 0f, float64 node.w, float64 node.h)
-      ctx.fill()
+      draw_rounded_rectangle(vg, node.color, node.opacity, 0f, 0f, node.w, node.h, 
+        0f, 0f, black(1))
     of UiBox:
-      draw_rounded_rectangle(ctx, node.color, node.opacity, 0f, 0f,
-          node.w, node.h, node.radius, node.border_width, node.border_color)
+      draw_rounded_rectangle(vg, node.color, node.opacity, 0f, 0f, node.w, node.h,
+        node.radius, node.border_width, node.border_color)
     of UiText:
       var
-        pixels = text_pixel_size(ctx, node.str, node.family)
+        pixels = text_pixel_size(vg, node.str, node.face)
         align = node.axis_alignment(pixels.w, pixels.h)
-      draw_text(ctx, node.str, node.family, node.color, node.opacity, align.x, align.y)
+      draw_text(vg, node.str, node.face, node.color, node.size, align.x, align.y)
+      node.minw = pixels.w
+      node.minh = pixels.h
     of UiCanvas:
-        ctx.save()
-        for p in node.paint:
-          p(node, node.parent, ctx)
-        ctx.restore()
+        vg.save()
+        for p in node.paint:  
+          {.cast(gcsafe).}:
+            p(node, node.parent, vg)
+        vg.restore()
     of UiImage:
-      draw_png(ctx, node.src, 0, 0, node.w, node.h)
+      draw_image(vg, node.src)
     else:
       discard
-  node.draw_children(ctx)
+  vg.restore()
+  node.draw_children(vg)
   for draw_post in node.draw_post:
     if draw_post.isNil() == false:
-      draw_post()
-  ctx.destroy()
+      {.cast(gcsafe).}:
+        draw_post()
   node.force_redraw = false
 
-proc contains*(node: UiNode, x, y: float32): bool =
-  node.x < x and x < (node.x + node.w ) and 
-    y > node.y and y < (node.y + node.h)
-
-proc handle_event*(window, node: UiNode, ev: var UiEvent)
+proc handle_event*(window, node: UiNode, ev: var UiEvent) {.gcsafe.}
 
 template handle_event_offset(window, child: UiNode, ev: var UiEvent) =
   var
     tmpx = ev.x
     tmpy = ev.y
-  ev.x = ev.x - int child.x
-  ev.y = ev.y - int child.y
+  ev.x = ev.x - child.x
+  ev.y = ev.y - child.y
   window.handle_event(child, ev)
   ev.x = tmpx
   ev.y = tmpy
 
-proc request_focus*(node, target: UiNode) =
+proc request_focus*(node, target: UiNode) {.gcsafe.} =
   assert node.kind == UiWindow
   if node.focused_node != nil:
     node.focused_node.has_focus = false
-    var e = UiEvent(kind: UiEventUnfocus, x: 0, y: 0, native: node.native)
+    var e = UiEvent(kind: UiUnfocus, x: 0, y: 0)
     node.handle_event_offset(node.focused_node, e)
 
   node.focused_node = target
   target.has_focus = true
-  var e = UiEvent(kind: UiEventFocus, x: 0, y: 0, native: node.native)
+  var e = UiEvent(kind: UiFocus, x: 0, y: 0)
   node.handle_event_offset(target, e)
 
   ouidebug "focus given to " & target.name
@@ -215,10 +222,13 @@ proc queue_redraw*(target: UiNode = nil, update: bool = true) =
   target.force_parents_to_redraw()
   if target.kind != UiWindow:
     target.force_children_to_redraw()
-  target.window.native.expose()
 
 proc resize*(node: UiNode, w, h: float32) =
   if node.kind == UiWindow:
+    if node.resizing == false:
+      when glfw_supported():
+        node.handle.size=(w: int32 w, h: int32 h)
+      return
     node.w = w
     node.h = h
     node.queue_redraw()
@@ -227,25 +237,115 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
   if node.animating:
     return
   for on_ev in node.on_event:
-    on_ev(node, node.parent, ev)
+    {.cast(gcsafe).}:
+      on_ev(node, node.parent, ev)
   for n in node.children:
     if n.visible == false or n.animating:
       break
     if n.contains(float32(ev.x), float32(ev.y)) or n.has_focus:
-      if ev.kind == UiEventMousePress and ev.button == 1:
+      if ev.kind == UiMousePress and ev.button == mb1:
         if n.accepts_focus and n.has_focus == false:       
           window.request_focus(n)
          
       if n.hovered == false:
         n.hovered = true
-        var e = UiEvent(kind: UiEventEnter, x: ev.x, y: ev.y, native: ev.native)
-        window.handle_event_offset(n, e)
+        if ev.kind != UiEnter:
+          var e = UiEvent(kind: UiEnter, x: ev.x, y: ev.y)
+          window.handle_event_offset(n, e)
       window.handle_event_offset(n, ev)
     else:
       if n.hovered:
         n.hovered = false
-        var e = UiEvent(kind: UiEventLeave, x: ev.x, y: ev.y, native: ev.native)
-        window.handle_event_offset(n, e)
+        if ev.kind != UiLeave:
+          var e = UiEvent(kind: UiLeave, x: ev.x, y: ev.y)
+          window.handle_event_offset(n, e)
+
+proc draw_opengl*(window: UiNode) =
+  assert window.kind == UiWindow
+  var
+    (fbWidth, fbHeight) = window.handle.framebufferSize
+  if window.buffer != nil:
+    nvgluDeleteFramebuffer(window.buffer)
+    window.buffer = nil
+  
+  window.buffer = nvgluCreateFramebuffer(window.vg, int window.w, int window.h, {ifRepeatX, ifRepeatY})
+  glViewport(0, 0, fbWidth, fbHeight)       
+  glClearColor(0.0, 0.0, 0.0, 0.0)
+  glClear(GL_COLOR_BUFFER_BIT or GL_STENCIL_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+  nvgluBindFramebuffer(window.buffer)
+  window.vg.beginFrame(cfloat window.w, cfloat window.h, 1.0)
+  window.trigger_update_attributes()
+  window.draw()
+  nvgluBindFramebuffer(nil)
+  window.vg.beginPath()
+  var p = imagePattern(window.vg, 0, 0, float window.w, float window.h, 0, window.buffer.image, 1.0f)
+  window.vg.fillPaint(p)
+  window.vg.fill()
+  window.vg.endFrame()
+
+when glfw_supported():
+  var glfw_not_inited: bool = true
+  proc create_glfw_window(window: UiNode): Window =
+    if glfw_not_inited:
+      glfw.initialize()
+      
+    var cfg = DefaultOpenglWindowConfig
+    cfg.size = (w: int window.w, h: int window.h)
+    cfg.title = "oui_glfw_window"
+    cfg.resizable = true
+    cfg.transparentFramebuffer = true
+    cfg.bits = (r: 8, g: 8, b: 8, a: 8, stencil: 8, depth: 16)
+    cfg.version = glv30
+    cfg.visible = false
+    result = newWindow(cfg)
+    glfw.makeContextCurrent(result) 
+    if glfw_not_inited:
+      glfw_not_inited = false
+      nvgInit(getProcAddress)
+      if not gladLoadGL(getProcAddress):
+        oui_error "glad failed to load gl"
+
+    result.windowSizeCb = proc(w: Window, size: tuple[w, h: int32]) =
+      window.resizing = true
+      window.resize(float size.w, float size.h)
+      window.resizing = false
+    
+    result.mouseButtonCb = proc(w: Window, b: MouseButton, pressed: bool, mods: set[ModifierKey]) =
+      if pressed:
+        var e = UiEvent(kind: UiMousePress, button: b, x: window.cursor_pos.x, y: window.cursor_pos.y)
+        window.handle_event(window, e)
+      else:
+        var e = UiEvent(kind: UiMouseRelease, button: b, x: window.cursor_pos.x, y: window.cursor_pos.y)
+        window.handle_event(window, e)
+    
+    result.cursorPositionCb = proc(w: Window, pos: tuple[x, y: float64]) =
+      window.cursor_pos = (x: pos.x, y: pos.y)
+      var e = UiEvent(kind: UiMouseMotion, x: pos.x, y: pos.y)
+      window.handle_event(window, e)
+
+    result.cursorEnterCb = proc(w: Window, entered: bool) =
+      if entered:
+        var e = UiEvent(kind: UiEnter,  x: window.cursor_pos.x, y: window.cursor_pos.y)
+        window.handle_event(window, e)
+      else:
+        var e = UiEvent(kind: UiLeave, x: window.cursor_pos.x, y: window.cursor_pos.y)
+        window.handle_event(window, e)
+    
+    result.charCb = proc(w: Window, codePoint: Rune) =
+      var e = UiEvent(kind: UiKeyPress, key: keyUnknown, mods: {}, ch: codePoint.toUTF8(),
+        x: window.cursor_pos.x, y: window.cursor_pos.y)
+      window.handle_event(window, e)
+    
+    result.keyCb = proc(w: Window, key: Key, scanCode: int32, action: KeyAction,
+        mods: set[ModifierKey]) =
+      if action == kaDown:
+        var e = UiEvent(kind: UiKeyPress, key: key, mods: mods, ch: "",
+          x: window.cursor_pos.x, y: window.cursor_pos.y)
+        window.handle_event(window, e) 
+      elif action == kaUp:
+        var e = UiEvent(kind: UiKeyRelease, key: key, mods: mods, ch: "",
+          x: window.cursor_pos.x, y: window.cursor_pos.y)
+        window.handle_event(window, e)
 
 proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
   result = UiNode(kind: k,
@@ -261,10 +361,10 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     on_event: @[],
     draw_post: @[],
     accepts_focus: false,
-    index: -1,
+    index: 0,
     table: nil,
     children: @[],
-    color: parse_color("#ffffff"),
+    color: black(1),
     opacity: 1f,
     left_anchored: false,
     top_anchored: false)
@@ -274,33 +374,22 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     result.title = id
     result.is_popup = false
     result.focused_node = nil
-    result.native = UiNative.init(100, 100)
-    var window = result
-    result.native.received_event = proc(ev: UiEvent) {.gcsafe.} =
-      var tmp = ev
-      if ev.kind == UiEventResize:
-        window.native.width = ev.w
-        window.native.height = ev.h
-        window.resize(float32 ev.w, float32 ev.h)
-      elif ev.kind == UiEventExpose:
-        window.trigger_update_attributes()
-        window.draw()
-        if window.surface != nil:
-          window.native.ctx.set_source(window.surface, 0f, 0f)
-          window.native.ctx.paint()
-      elif ev.kind == UiEventKeyPress:
-        if ev.key == 16:
-          tmp.shift_state = true
-        window.handle_event(window, tmp)
-      elif ev.kind == UiEventKeyRelease:
-        if ev.key == 16:
-          tmp.shift_state = false
-        window.handle_event(window, tmp)
-      else:
-        window.handle_event(window, tmp)
+    result.w = 100
+    result.h = 100
+    when glfw_supported():
+      result.handle = create_glfw_window(result)
+    result.vg = nvgCreateContext({nifStencilStrokes})
+    windows.add result
+
   if result.kind == UiText:
     result.valign = UiCenter
     result.halign = UiCenter
+
+  result.update_attributes.add proc(s, p: UiNode) =
+    if s.w < s.minw and s.minw > 0:
+      s.w = s.minw
+    if s.h < s.minh and s.minh > 0:
+      s.h = s.minh
 
 proc fill*(node, target: UiNode) =
   node.set_left target.left
@@ -331,7 +420,7 @@ proc add*(node: UiNode, child: UiNode) =
   child.window = node.window
   node.children.add(child)
 
-proc add_delegate(node: UiNode, index: int) =
+proc add_delegate*(node: UiNode, index: int) =
   var delegate = node.delegate(node.table, index)
   delegate.table = node.table
   delegate.index = index
@@ -351,10 +440,9 @@ proc set_table*(node: UiNode, table: UiTable) =
 
 proc show*(node: UiNode) =
   if node.kind == UiWindow:
-    set_window_attributes(node.native, node.is_popup)
-    resize_window(node.native, int node.w, int node.h)
-    show_window(node.native)
-
+    node.resize(node.w, node.h)
+    when glfw_supported():
+      node.handle.show()
   node.visible = true
   for s in node.on_shown:
     s()
@@ -363,37 +451,58 @@ proc show*(node: UiNode) =
 
 proc hide*(node: UiNode) =
   if node.kind == UiWindow:
-    hide_window(node.native)
-  if node.surface != nil:
-    node.surface.destroy()
-    node.surface = nil
+    when glfw_supported():
+      node.handle.hide()
   node.visible = false
   for h in node.on_hidden:
     h()
   for child in node.children:
     child.hide()
 
-when defined(testing) and is_main_module:
-  import unittest
+test_my_way "node":
+  var
+    box1 = UiNode.init("box1", UiBox)
+    box2 = UiNode.init("box2", UiBox)
+  box1.w = 100
+  box1.h = 100
+  box2.w = 200
+  box2.h = 59
 
-  proc main() =
-    suite "node":
-      var
-        box1 = UiNode.init("box1", UiBox)
-        box2 = UiNode.init("box2", UiBox)
+  test "contains":
+    check  box1.contains(99, 99)
+    check box2.contains(50, 50)
 
-      box1.w = 100
-      box1.h = 100
-      box2.fill(box1)
+    box2.set_left box1.right
 
-      test "contains":
-        assert box1.contains(99, 99)
-        assert box2.contains(50, 50)
+    check box2.contains(50, 50)
+    check box2.contains(105, 150) == false
+    check box2.contains(105, 50)
+    check box2.contains(105, 99)
 
-        box2.set_left box2.right
+  test "window":
+    var win = UiNode.init("app", UiWindow)
+    win.color = black(245)
+    box1.color = red(255)
+    box2.color = blue(255)
+    box1.update_attributes.add proc(s, p: UiNode) =
+      s.set_right(p.right)
+      s.set_bottom(p.bottom)
+   
+    win.add box1 
+    win.add box2
+    var box3 = UiNode.init("box3", UiBox)
+    box3.w = 50
+    box3.h = 50
+    box3.color = green(200)
+    box2.add box3
+    var box4 = UiNode.init("box3", UiBox)
+    box4.w = 50
+    box4.h = 50
+    box4.color = green(150)
+    box4.update_attributes.add proc(s, p: UiNode) =
+      s.center(p)
+    win.add box4
+    win.show()
 
-        assert box2.contains(50, 50) == false
-        assert box2.contains(105, 150) == false
-        assert box2.contains(105, 50)
-        assert box2.contains(105, 99)
-  main()
+
+    oui_main()

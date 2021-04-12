@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import macros, colors, strutils, cairo
-export colors, strutils
-import types, node, sugarsyntax, backend
-export types, node, sugarsyntax, backend
+import macros, colors, strutils, glfw
+export strutils
+import types, node, sugarsyntax
+export sugarsyntax
 import testmyway
 
 proc text_box_key_press*(text: var string, event: var UiEvent, ch: string, password, focused: bool) =
@@ -68,8 +68,8 @@ decl_widget button, box:
   style: ButtonStyle = button_style
 do:
   color style.normal
-  radius 10
-  border_width 2
+  radius 4
+  border_width 1
   border_color style.border
   events:
     mouse_enter:
@@ -84,6 +84,20 @@ do:
     button_release:
       color style.hover
       self.queue_redraw()
+
+template button_with_text*(txt: string, up, clicked: untyped, style: ButtonSTyle = button_style) =
+  button:
+    text:      
+      str txt
+      update:
+        fill parent
+    events:
+      button_release:
+        if event.button == 1:
+          clicked
+    update:
+      up
+  do: style
 
 decl_style textbox: 
   normal: "#252525"
@@ -134,26 +148,35 @@ decl_widget scrollable, layout:
 do:
   var 
     swipeing {.gensym.} = false 
-    yoffset {.gensym.} = 1
-    pos {.gensym.} = (x: 0, y: 0)
+    yoffset {.gensym.} = 1.0
+    oldy {.gensym.}= 0.0
   arrange_layout:
     for child in self.children:
       child.y = float32 yoffset
   events:
+    mouse_leave:
+      swipeing = false
     button_press:
-      swipeing = true
+      if event.button == 1:
+        swipeing = true
       if event.button == 5:
-        yoffset = yoffset + 3
+        yoffset = yoffset + 8
       elif event.button == 4:
-        yoffset = yoffset - 3
+        yoffset = yoffset - 8
       self.queue_redraw()
     button_release:
-      swipeing = false
+      if event.button == 1:
+        swipeing = false
+    mouse_motion:
+      if swipeing:
+        yoffset = yoffset - (oldy - float event.y)
+        self.queue_redraw()
+      oldy = float event.y
 
-decl_widget list, layout:
+decl_widget list, row:
   discard
 do:
-  discard
+  spacing 5
 
 decl_widget popup, window:
   discard
