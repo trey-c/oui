@@ -25,7 +25,7 @@ proc draw_text*(vg: NVGContext, text, face: string, color: Color, size,
   vg.fontSize(size * FONT_SIZE_FACTOR)
   vg.fontFace(face)
   vg.fillColor(color)
-  discard vg.text(x, y, text)
+  var t = vg.text(x, y, text)
 
 proc text_pixel_size*(vg: NVGContext, text, face: string): tuple[w, h: float] =
   (w: 35.0, h: 100.0)

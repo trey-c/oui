@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import macros, strutils
+import macros, strutils, glfw
 import nanovg except text
 import types, node, utils
 import testmyway
@@ -62,7 +62,7 @@ macro decl_style*(name, inner: untyped) =
   assert inner.kind == nnkStmtList
   for call in inner:
     assert call.kind == nnkCall
-    styles.add((name: call[0].str_val, color: call[1][0].str_val))  
+    styles.add((name: call[0].str_val, color: call[1][0].repr))  
 
   var
     type_name = name.str_val
@@ -71,7 +71,7 @@ macro decl_style*(name, inner: untyped) =
     i = 0
   for style in styles:
     type_str.add style.name
-    var_str.add style.name & ": \"" & style.color  & "\""
+    var_str.add style.name & ": " & style.color
     if i != styles.len - 1:
       type_str.add ", "
       var_str.add ", "
@@ -79,7 +79,7 @@ macro decl_style*(name, inner: untyped) =
 
   result = parse_stmt("""
 type
-  $1* = tuple[$2: string]
+  $1* = tuple[$2: Color]
 var $3* = ($4)
   """ % [type_name.capitalize_ascii.str_to_camel_case & "Style", type_str, type_name & "_style", var_str])
 
@@ -100,16 +100,15 @@ macro decl_widget*(name, base, params, inner: untyped) =
     var fparam = param
     fparam.delete(param.find(":"), param.len - 1)
     params_call_str.add ", " & fparam
+
   var cmd = nnkCommand.new_tree(base, ident("id"), inner)
   var strstmt = """
 template $1*(id, inner: untyped$2) = $3
   inner
 template $1*(inner: untyped$2) = 
   block:
-    noid_with_counter "$1", "$4": 
-    $5
-  """ % [name.str_val, params_str, cmd.repr, params_call_str, inner.repr]
-  echo strstmt
+    $1 noid, inner$4
+  """ % [name.str_val, params_str, cmd.repr, params_call_str]
   result = parse_stmt(strstmt)
 
 decl_ui_node window, UiWindow
@@ -258,45 +257,65 @@ template update*(inner: untyped) =
     correct_self(s, p, inner)), 0)
 
 template events*(inner: untyped) =
-  self.on_event.add proc(s, p: UiNode, e: var UiEvent) {.closure.} =
+  self.event.add proc(s, p: UiNode, e: var UiEvent) {.closure.} =
     event = e
     correct_self(s, p, inner)
 
 template key_press*(inner: untyped) =
-  if event.kind == UiEventKeyPress:
-    `inner`
+  events:
+    if event.kind == UiKeyPress:
+      `inner`
 
 template key_release*(inner: untyped) =
-  if event.kind == UiEventKeyRelease:
-    `inner`
+  events:
+    if event.kind == UiKeyRelease:
+      `inner`
 
 template button_press*(inner: untyped) =
-  if event.kind == UiEventMousePress:
-    `inner`
+  events:
+    if event.kind == UiMousePress:
+      `inner`
 
 template button_release*(inner: untyped) =
-  if event.kind == UiEventMouseRelease:
-    `inner`
+  events:
+    if event.kind == UiMouseRelease:
+      `inner`
 
 template mouse_motion*(inner: untyped) =
-  if event.kind == UiEventMouseMotion:
-    `inner`
+  events:
+    if event.kind == UiMouseMotion:
+      `inner`
 
 template mouse_enter*(inner: untyped) =
-  if event.kind == UiEventEnter:
-    `inner`
+  events:
+    if event.kind == UiEnter:
+      `inner`
 
 template mouse_leave*(inner: untyped) =
-  if event.kind == UiEventLeave:
-    `inner`
+  events:
+    if event.kind == UiLeave:
+      `inner`
 
 template focus*(inner: untyped) =
-  if event.kind == UiEventFocus:
-    `inner`
+  events:
+    if event.kind == UiFocus:
+      `inner`
 
 template unfocus*(inner: untyped) =
-  if event.kind == UiEventUnfocus:
-    `inner`
+  events:
+    if event.kind == UiUnfocus:
+      `inner`
+
+template unfocus*(inner: untyped) =
+  events:
+    if event.kind == UiUnfocus:
+      `inner`
+  
+template pressed*(inner: untyped) =
+  ## Gets called when mouse button 1 gets press. Typically used with buttons
+  button_release:
+    if event.button == mb1:
+      inner
 
 template arrange_layout*(inner: untyped) =
   self.arrange_layout.add proc(s, p: UiNode) {.closure.} =

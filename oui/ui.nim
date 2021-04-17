@@ -13,105 +13,101 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import macros, colors, strutils, glfw
+import macros, strutils, glfw
+import nanovg except text
 export strutils
 import types, node, sugarsyntax
-export sugarsyntax
 import testmyway
 
-proc text_box_key_press*(text: var string, event: var UiEvent, ch: string, password, focused: bool) =
-  echo event.shift_state
-  if focused:
-    case event.key:
-    of 65288:
-      text.delete(text.high, text.high)
-    of 32:
-      if password:
-        text.add("*")
-      else:
-        text.add(" ")
-    of 65505, 65507, 65509:
-      discard
-    else:
-      if password:
-        text.add("*")
-      else:
-        if event.shift_state == true:
-          text.add(ch.to_upper())
-        else:
-          text.add(ch)
+# template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
+#   var tmp = 0.0
+#   for child in node.children:
+#     child.`axis` = tmp
+#     tmp = tmp + child.`size` + node.spacing
 
-template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
-  var tmp = 0.0
-  for child in node.children:
-    child.`axis` = tmp
-    tmp = tmp + child.`size` + node.spacing
-
-template stack_switch*(node, target: UiNode, animate: untyped) =
-  node.trigger_update_attributes()
-  for n in node.children:
-    if n.visible:
-      n.hide()
-  for n in node.children:
-    if n == target:
-      n.show()
-      animate
-      break
-  node.queue_redraw()
+# template stack_switch*(node, target: UiNode, animate: untyped) =
+#   node.trigger_update_attributes()
+#   for n in node.children:
+#     if n.visible:
+#       n.hide()
+#   for n in node.children:
+#     if n == target:
+#       n.show()
+#       animate
+#       break
+#   node.queue_redraw()
 
 decl_style button: 
-  normal: "#0099ff"
-  hover: "#00ccff"
-  active: "#006bb3"
-  border: "#003d66"
+  normal: rgb(50, 50, 50)
+  hover: rgb(64, 64, 64)
+  active: rgb(44, 44, 44)
+  border: rgb(14, 14, 14)
 decl_widget button, box:
   style: ButtonStyle = button_style
 do:
   color style.normal
-  radius 4
-  border_width 1
+  radius 2
+  border_width 2
   border_color style.border
-  events:
-    mouse_enter:
-      color style.hover
-      self.queue_redraw()
-    mouse_leave:
-      color style.normal
-      self.queue_redraw()
-    button_press:
-      color style.active
-      self.queue_redraw()
-    button_release:
-      color style.hover
-      self.queue_redraw()
+  mouse_enter:
+    color style.hover
+    self.queue_redraw()
+  mouse_leave:
+    color style.normal
+    self.queue_redraw()
+  button_press:
+    color style.active
+    self.queue_redraw()
+  button_release:
+    color style.hover
+    self.queue_redraw()
 
-template button_with_text*(txt: string, up, clicked: untyped, style: ButtonSTyle = button_style) =
-  button:
-    text:      
-      str txt
-      update:
-        fill parent
-    events:
-      button_release:
-        if event.button == 1:
-          clicked
-    update:
-      up
-  do: style
+# template button_with_text*(txt: string, up, clicked: untyped, style: ButtonSTyle = button_style) =
+#   button:
+#     text:      
+#       str txt
+#       update:
+#         fill parent
+#     events:
+#       button_release:
+#         if event.button == 1:
+#           clicked
+#     update:
+#       up
+#   do: style
+
+# proc text_box_key_press*(text: var string, event: var UiEvent, password, focused: bool) =
+#   case event.key:
+#   of keyBackspace:
+#     text.delete(text.high, text.high)
+#   of keySpace:
+#     if password:
+#       text.add("*")
+#     else:
+#       text.add(" ")
+#   else:
+#     if password:
+#       text.add("*")
+#     else:
+#       if event.mods. == true:
+#         text.add(event.ch.to_upper())
+#       else:
+#         text.add(event.ch.to_lower())
 
 decl_style textbox: 
-  normal: "#252525"
-  border_focus: "#00ccff"
-  border_normal: "#212121"
-  txt: "#cccccc"
+  normal: rgb(50, 50, 50)
+  border_focus: rgb(77, 77, 77)
+  border_normal: rgb(38, 38, 38)
+  txt: rgb(145, 145, 145)
 decl_widget textbox, box:
   var textstr: var string
+  label: string
   password: bool = false
   style: TextboxStyle = textbox_style
 do:
   accepts_focus true
   border_width 2
-  radius 10
+  radius 2
   color style.normal
   border_color style.border_normal
   text:
@@ -120,92 +116,93 @@ do:
     update:
       str textstr
       fill parent
-  events:
-    focus:
-      border_color style.border_focus
-      self.queue_redraw()
-    unfocus:
-      border_color style.border_normal
-      self.queue_redraw()
-    key_press:
-      text_box_key_press(textstr, event, event.ch, password, self.has_focus)
-      self.queue_redraw()
+  focus:
+    border_color style.border_focus
+    self.queue_redraw()
+  unfocus:
+    border_color style.border_normal
+    self.queue_redraw()
+  key_press:
+    if not self.focused:
+      return
+    text_box_key_press(textstr, event, event.ch, password, self.has_focus)
+    self.queue_redraw()
 
-decl_widget row, layout:
-  discard
-do:
-  arrange_layout:
-    arrange_row_or_column(y, h, id)
+# decl_widget combobox, textbox:
+#   discard
+# do:
+#   var up {.gensym.}: UiNode
+#   popup:
+#     up = self
+#     size 150, 400
+#     list:
+#       update:
+#         fill parent
+#   events:
+#     button_press:
+#       up.show()
+#       up.engine.move_window(ev.xroot, ev.yroot)
 
-decl_widget column, layout:
-  discard
-do:
-  arrange_layout:
-    arrange_row_or_column(x, w, id)
+# decl_widget row, layout:
+#   discard
+# do:
+#   arrange_layout:
+#     arrange_row_or_column(y, h, id)
 
-decl_widget scrollable, layout:
-  discard
-do:
-  var 
-    swipeing {.gensym.} = false 
-    yoffset {.gensym.} = 1.0
-    oldy {.gensym.}= 0.0
-  arrange_layout:
-    for child in self.children:
-      child.y = float32 yoffset
-  events:
-    mouse_leave:
-      swipeing = false
-    button_press:
-      if event.button == 1:
-        swipeing = true
-      if event.button == 5:
-        yoffset = yoffset + 8
-      elif event.button == 4:
-        yoffset = yoffset - 8
-      self.queue_redraw()
-    button_release:
-      if event.button == 1:
-        swipeing = false
-    mouse_motion:
-      if swipeing:
-        yoffset = yoffset - (oldy - float event.y)
-        self.queue_redraw()
-      oldy = float event.y
+# decl_widget column, layout:
+#   discard
+# do:
+#   arrange_layout:
+#     arrange_row_or_column(x, w, id)
 
-decl_widget list, row:
-  discard
-do:
-  spacing 5
+# decl_widget scrollable, layout:
+#   discard
+# do:
+#   var 
+#     swipeing {.gensym.} = false 
+#     yoffset {.gensym.} = 1.0
+#     oldy {.gensym.}= 0.0
+#   arrange_layout:
+#     for child in self.children:
+#       child.y = float32 yoffset
+#   events:
+#     mouse_leave:
+#       swipeing = false
+#     button_press:
+#       if event.button == 1:
+#         swipeing = true
+#       if event.button == 5:
+#         yoffset = yoffset + 8
+#       elif event.button == 4:
+#         yoffset = yoffset - 8
+#       self.queue_redraw()
+#     button_release:
+#       if event.button == 1:
+#         swipeing = false
+#     mouse_motion:
+#       if swipeing:
+#         yoffset = yoffset - (oldy - float event.y)
+#         self.queue_redraw()
+#       oldy = float event.y
 
-decl_widget popup, window:
-  discard
-do:
-  self.is_popup = true
+# decl_widget list, row:
+#   discard
+# do:
+#   spacing 5
 
-decl_widget combobox, textbox:
-  discard
-do:
-  var up {.gensym.}: UiNode
-  popup:
-    up = self
-    size 150, 400
-    list:
-      update:
-        fill parent
-  events:
-    button_press:
-      up.show()
-      up.engine.move_window(ev.xroot, ev.yroot)
+# decl_widget popup, window:
+#   discard
+# do:
+#   self.is_popup = true
 
-decl_widget stack, layout:
-  discard
-do:
-  arrange_layout:
-    for node in self.children:
-      if node.visible != true:
-        continue
-      node.fill self
+# decl_widget stack, layout:
+#   discard
+# do:
+#   arrange_layout:
+#     for node in self.children:
+#       if node.visible != true:
+#         continue
+#       node.fill self
 
 test_my_way "ui":
   test "declarations":

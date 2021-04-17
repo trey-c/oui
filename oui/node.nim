@@ -169,7 +169,7 @@ proc draw(node: UiNode) =
       var
         pixels = text_pixel_size(vg, node.str, node.face)
         align = node.axis_alignment(pixels.w, pixels.h)
-      draw_text(vg, node.str, node.face, node.color, node.size, align.x, align.y)
+      draw_text(vg, node.str, node.face, node.color, node.size, 0, 0)
       node.minw = pixels.w
       node.minh = pixels.h
     of UiCanvas:
@@ -228,7 +228,6 @@ proc resize*(node: UiNode, w, h: float32) =
     if node.resizing == false:
       when glfw_supported():
         node.handle.size=(w: int32 w, h: int32 h)
-      return
     node.w = w
     node.h = h
     node.queue_redraw()
@@ -236,7 +235,7 @@ proc resize*(node: UiNode, w, h: float32) =
 proc handle_event*(window, node: UiNode, ev: var UiEvent) =
   if node.animating:
     return
-  for on_ev in node.on_event:
+  for on_ev in node.event:
     {.cast(gcsafe).}:
       on_ev(node, node.parent, ev)
   for n in node.children:
@@ -296,7 +295,6 @@ when glfw_supported():
     cfg.transparentFramebuffer = true
     cfg.bits = (r: 8, g: 8, b: 8, a: 8, stencil: 8, depth: 16)
     cfg.version = glv30
-    cfg.visible = false
     result = newWindow(cfg)
     glfw.makeContextCurrent(result) 
     if glfw_not_inited:
@@ -358,13 +356,13 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     animating: false,
     force_redraw: false,
     update_attributes: @[],
-    on_event: @[],
+    event: @[],
     draw_post: @[],
     accepts_focus: false,
     index: 0,
     table: nil,
     children: @[],
-    color: black(1),
+    color: rgb(255, 255, 255),
     opacity: 1f,
     left_anchored: false,
     top_anchored: false)
@@ -376,12 +374,14 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     result.focused_node = nil
     result.w = 100
     result.h = 100
+    result.color = rgb(18, 18, 18)
     when glfw_supported():
       result.handle = create_glfw_window(result)
     result.vg = nvgCreateContext({nifStencilStrokes})
     windows.add result
 
   if result.kind == UiText:
+    result.color = rgb(45, 45, 45)
     result.valign = UiCenter
     result.halign = UiCenter
 
@@ -443,18 +443,21 @@ proc show*(node: UiNode) =
     node.resize(node.w, node.h)
     when glfw_supported():
       node.handle.show()
+      node.handle.shouldClose = false
   node.visible = true
-  for s in node.on_shown:
+  for s in node.shown:
     s()
   for child in node.children:
     child.show()
 
 proc hide*(node: UiNode) =
+  ## The application will be terminated if all windows are hidden
   if node.kind == UiWindow:
     when glfw_supported():
       node.handle.hide()
+      node.handle.shouldClose = true
   node.visible = false
-  for h in node.on_hidden:
+  for h in node.hidden:
     h()
   for child in node.children:
     child.hide()
@@ -503,6 +506,3 @@ test_my_way "node":
       s.center(p)
     win.add box4
     win.show()
-
-
-    oui_main()

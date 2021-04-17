@@ -1,6 +1,6 @@
-import glfw
-import oui/types, oui/node
-export types, node
+import glfw, nanovg
+import oui/types, oui/node, oui/sugarsyntax, oui/ui, oui/utils
+export types, node, sugarsyntax, utils
 import testmyway
 
 proc no_windows_opened(): bool =
@@ -27,16 +27,39 @@ proc oui_main*() =
 testmyway "oui":
   test "no_windows_opened":
     check no_windows_opened()
-    var win = UiNode.init("win", UiWindow)
-    check no_windows_opened() == false
+    window win:
+      discard
     win.show()
-    var win2 = UiNode.init("win2", UiWindow)
+    check no_windows_opened() == false
+    window win2:
+      discard
     check no_windows_opened() == false
     win2.show()
-    win.handle.shouldClose = true
+    win.hide()
     check no_windows_opened() == false
-    win2.handle.shouldClose = true
+    win2.hide()
     check no_windows_opened()
   
   test "oui_main":
+    window app:
+      size 100, 100
+      button_press:
+        echo "coime AT me draew"
+      button:
+        update:
+          size 100, 28
+          center app
+        pressed:
+          echo "Click me"
+        text:
+          update:
+            fill parent
+          var font = self.window.vg.createFont("icons", "entypo.ttf")
+          if font == NoFont:
+            oui_error "Couldn't load font" 
+          str "Clicfk me"
+          size 11
+          color 100, 0, 100
+          face "icons"
+    app.show()
     oui_main()   

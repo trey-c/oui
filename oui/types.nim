@@ -83,10 +83,10 @@ type
     visible*, force_redraw*, animating*: bool
     hovered*, has_focus*, accepts_focus*: bool
     update_attributes*: seq[UpdateAttributesCb]
-    on_event*: seq[OnEventCb]
+    event*: seq[OnEventCb]
     draw_post*: seq[DrawPostCb]
-    on_shown*: seq[ShownCb]
-    on_hidden*: seq[HiddenCb]
+    shown*: seq[ShownCb]
+    hidden*: seq[HiddenCb]
     index*: int
     color*: Color
     opacity*: range[0f..1f]
