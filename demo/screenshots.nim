@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import oui/ui
+import oui
 import oui/animation
 
-window app:
+window:
+  id ap
   size 600, 600
   color "#cccccc"
   column:

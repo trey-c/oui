@@ -1,6 +1,6 @@
 import glfw, nanovg
 import oui/types, oui/node, oui/sugarsyntax, oui/ui, oui/utils
-export types, node, sugarsyntax, utils
+export types, node, sugarsyntax, utils, ui
 import testmyway
 
 proc no_windows_opened(): bool =
@@ -11,28 +11,29 @@ proc no_windows_opened(): bool =
 
 proc oui_main*() =
   when glfw_supported():
-    glfw.swapInterval(0)
+    
     var close = false
     while close != true:
+      glfw.swapInterval(0) 
       for window in windows:
-        glfw.makeContextCurrent(window.handle)
-        window.draw_opengl()
-        glfw.swapBuffers(window.handle)
-
         if window.handle.shouldClose():
           if no_windows_opened():
             close = true
+        glfw.makeContextCurrent(window.handle)
+        window.draw_opengl()
+        glfw.swapBuffers(window.handle)
+       
       glfw.waitEvents()
 
 testmyway "oui":
   test "no_windows_opened":
     check no_windows_opened()
-    window win:
-      discard
+    window:
+      id win
     win.show()
     check no_windows_opened() == false
-    window win2:
-      discard
+    window:
+      id win2
     check no_windows_opened() == false
     win2.show()
     win.hide()
@@ -41,7 +42,8 @@ testmyway "oui":
     check no_windows_opened()
   
   test "oui_main":
-    window app:
+    window:
+      id app
       size 100, 100
       button_press:
         echo "coime AT me draew"
@@ -52,14 +54,9 @@ testmyway "oui":
         pressed:
           echo "Click me"
         text:
-          update:
-            fill parent
-          var font = self.window.vg.createFont("icons", "entypo.ttf")
-          if font == NoFont:
-            oui_error "Couldn't load font" 
-          str "Clicfk me"
-          size 11
-          color 100, 0, 100
-          face "icons"
+          str "Click me"
+          size 15
+          color 245, 245, 245
+          face "sans"
     app.show()
     oui_main()   

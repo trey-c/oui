@@ -2,19 +2,14 @@
 
 > :warning: Read the [manual](doc/MANUAL.md) before trying and understand that **oui** is pre-v1.0.0 with **lots of bugs** :warning:
 
-Open source, and expressive Ui framework with near native preformance, an easy to use syntax, addon modules, animations, and a GUI for seamless deployments (Android & Linux & Windows)
+Open source, and expressive Ui framework with near native preformance, an easy to use syntax, addon modules, and a GUI for seamless deployments (Desktop & Mobile)
 
 ### Features
 
-- Animations
-- Low memory usage
-- GUI for cross-platform deployments
 - No html/css/nodejs
-- Support for multiple backends
-  * Android/Egl
-  * X11
-  * Wayland
-  * Win32
+- Support for both desktop & mobile via glfw/glfm
+- GUI for cross-platform deployments
+- Drawing is done via nanovg
 - 7 UiNodes
   * Window
   * Box
@@ -37,39 +32,34 @@ Open source, and expressive Ui framework with near native preformance, an easy t
 
 ### Minimal code example
 
-Check out the [demo](/demo) application for a more realistic example. Or read the [manual](doc/MANUAL.md) for an explanation of whats below
-
 ```nim
-import oui/ui
+import oui
 
-window app:
+window:
+  id app
   title "Minimal App"
   size 600, 400
+  color 0, 0, 200
   box:
     color "#212121"
     update:
       fill parent
       w parent.w / 2
-  
 app.show()
 oui_main()
 ```
+
+Check out the [demo](/demo) application for a more realistic example. Or read the [manual](doc/MANUAL.md) for an explanation of whats above
 
 ### Dependencies
 
 Listed below is what certain or all **oui** modules depend on. Nimble dependencies are listed in the oui.nimble file
 
-- All
-  * nim
-  * cairo
-  * pango
-- oui/x11_backend.nim
-  * xlib
-- oui/win32_backend.nim
-  * win32 api
-- oui/android_backend.nim
-  * egl
-  * androidndk
+- nim v1.4.x
+- nanovg
+- glfw (desktop only)
+- gflm (mobile only)
+- androidndk (android only)
 
 #### Addons
 
@@ -80,45 +70,21 @@ Listed below is what certain or all **oui** modules depend on. Nimble dependenci
 
 #### Nim
 
-www.nim-lang.org/downloads
+https://www.nim-lang.org/downloads
+
+#### Linux 
+
+**Check https://www.nim-lang.org/downloads and go grab nim's latest version (v1.4.x)**
+
+Install a package like `glfw` or `glfw-x11` or `glfw-wayland` from your distro's package manager.
+`nim` can be also installed using your package manager, but only if it contains the latest nim version 
+
+#### Windows 10
+
+https://www.msys2.org or any other method for installing mingw64 packages
 
 ```shell
-> curl https://nim-lang.org/choosenim/init.sh -sSf | sh
-> choosenim
-> export PATH=$PATH:/home/<user>/.nimble/bin
-```
-#### Dependencies
-
-##### Android or any addons
-
-You may grab the needed dependencies via `ouideploy` **coming very soon**
-
-##### Linux (Ubuntu)
-`
-```shell
-> sudo apt-get install cairo-devel pango-devel
-```
-
-##### Linux (Arch)
-
-
-```shell
-> yay -S cairo-glesv2-bin
-> sudo pacman -S pango
-```
-
-##### Linux (OpenSUSE)
-
-```shell
-> sudo zypper in cairo-devel pango-devel
-```
-
-##### Windows 10
-
-www.msys2.org or any other method for installing mingw64 packages
-
-```shell
-> pacman -S --needed base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-cairo mingw-w64-x86_64-pango
+> pacman -S --needed base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-nim mingw-w64-x86_64-nimble mingw-w64-x86_64-nimble mingw-w64-x86_64-glfw
 ```
 #### oui
 
@@ -131,5 +97,3 @@ www.msys2.org or any other method for installing mingw64 packages
 ### License
 
 **oui** is licensed under the Apache-2.0 License - check [LICENSE](LICENSE) for more details
-
-**note** that a few borrowed private modules are licensed under the MIT license

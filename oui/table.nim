@@ -17,6 +17,7 @@ import tables, macros, strutils
 export tables
 import types
 import testmyway
+import utils
 
 proc init*(table: type UiTable): UiTable =
   UiTable(count: 0, list: @[])
@@ -35,8 +36,12 @@ proc `$`*(table: UiTable): string =
   $table.list
 
 proc at*(table: UiTable, index, flag: int): string =
-  assert index <= table.count
-  table[index][flag]
+    if index <= table.count and index != -1:
+      table[index][flag]      
+    else:
+      if index != -1:
+        oui_warning "UiTable at index " & $index & " is out of range"
+      $index & " unkown"
 
 proc clear*(table: UiTable) = 
   table.list.set_len(0)

@@ -14,48 +14,31 @@
 # limitations under the License.
 
 import macros, strutils, glfw
-import nanovg except text
+from colors import parse_color, extract_rgb
+import nanovg except text 
 import types, node, utils
 import testmyway
 
 var
   parents* {.compileTime.}: seq[NimNode] = @[]
 
-macro node_init*(id: untyped, kind: UiNodeKind): untyped =
-  var self_id = id.str_val
-  result = quote do:
-    UiNode.init `self_id`, `kind`
-
-macro node_next_parent(id: untyped, delegate: bool = false) =
+macro node_next_parent(node: UiNode, delegate: bool = false) =
   var current_parent = if parents.len > 0: parents[parents.high] else: new_nil_lit()
   if current_parent.kind != nnkNilLit and delegate.bool_val == false:
     result = quote do:
-      parent.add(`id`)
-  parents.add(id)
+      parent.add(`node`)
+  parents.add(node)
 
-template node*(id: untyped, kind: UiNodeKind, inner: untyped,
+template node*(kind: UiNodeKind, inner: untyped,
     delegate: bool = false) =
-  var `id` {.inject.} = node_init(id, kind)
+  var node = UiNode.init(kind)
   parent = self
-  self  = id
-  node_next_parent(id, delegate)
-  parent = id.parent
+  self  = node
+  node_next_parent(node, delegate)
   inner
   static:
     if parents.len > 0:
       discard parents.pop()
-
-template decl_ui_node*(name: untyped, kind: UiNodeKind) =
-  template name*(id: untyped, inner: untyped) =
-    var p {.gensym.}, s {.gensym.}: UiNode
-    s = self
-    p = parent
-    node id, kind, inner, false
-    self = s
-    parent = p
-  template name*(inner: untyped) =
-    block:
-      name noid, inner
 
 macro decl_style*(name, inner: untyped) =
   var styles: seq[tuple[name, color: string]] = @[]
@@ -63,7 +46,6 @@ macro decl_style*(name, inner: untyped) =
   for call in inner:
     assert call.kind == nnkCall
     styles.add((name: call[0].str_val, color: call[1][0].repr))  
-
   var
     type_name = name.str_val
     type_str = ""
@@ -76,40 +58,19 @@ macro decl_style*(name, inner: untyped) =
       type_str.add ", "
       var_str.add ", "
     i.inc
-
   result = parse_stmt("""
 type
   $1* = tuple[$2: Color]
 var $3* = ($4)
   """ % [type_name.capitalize_ascii.str_to_camel_case & "Style", type_str, type_name & "_style", var_str])
 
-macro decl_widget*(name, base, params, inner: untyped) =
-  var params_list: seq[string] = @[]
-  assert params.kind == nnkStmtList
-  for p in params:
-    if p.kind == nnkDiscardStmt:
-      continue
-    var pfixed = p.repr
-    pfixed.remove_prefix("var ")
-    params_list.add((pfixed))
-  var
-    params_str = ""
-    params_call_str = ""
-  for param in params_list:
-    params_str.add ", " & param
-    var fparam = param
-    fparam.delete(param.find(":"), param.len - 1)
-    params_call_str.add ", " & fparam
-
-  var cmd = nnkCommand.new_tree(base, ident("id"), inner)
-  var strstmt = """
-template $1*(id, inner: untyped$2) = $3
-  inner
-template $1*(inner: untyped$2) = 
-  block:
-    $1 noid, inner$4
-  """ % [name.str_val, params_str, cmd.repr, params_call_str]
-  result = parse_stmt(strstmt)
+template decl_ui_node(name: untyped, kind: UiNodeKind) =
+  template name*(inner: untyped) =
+    var tmpself = self
+    var tmpparent = parent
+    node kind, inner, false
+    self = tmpself
+    parent = tmpparent
 
 decl_ui_node window, UiWindow
 decl_ui_node box, UiBox
@@ -117,6 +78,7 @@ decl_ui_node text, UiText
 decl_ui_node canvas, UiCanvas
 decl_ui_node layout, UiLayout
 decl_ui_node image, UiImage
+decl_ui_node opengl, UiOpenGl
 
 template correct_self(s, p: UiNode, inner: untyped) =
   var tmpself = self
@@ -130,6 +92,12 @@ template correct_self(s, p: UiNode, inner: untyped) =
 template table*(m: UiTable) =
   self.set_table m
 
+macro id*(str: untyped) =
+  parse_stmt("""
+var $1 {.inject.} = self
+$1.id = "$1"
+  """ % [str.str_val])
+
 template delegate*(call: untyped, kind: UiNodeKind, inner: untyped) =
   self.delegate = proc(tmptable: UiTable, tmpindex: int): UiNode =
     var
@@ -141,6 +109,18 @@ template delegate*(call: untyped, kind: UiNodeKind, inner: untyped) =
 template paint*(inner: untyped) =
   self.paint.add proc(s, p: Uinode, tmpctx: ptr Context) {.closure.} =
     ctx = tmpctx
+    correct_self(s, p, inner)
+
+template draw_post*(inner: untyped) =
+  self.draw_post.add proc(s, p: UiNode) {.closure.} =
+    correct_self(s, p, inner)
+
+template shown*(inner: untyped) =
+  self.shown.add proc(s, p: UiNode) {.closure.} =
+    correct_self(s, p, inner)
+
+template hidden*(inner: untyped) =
+  self.hidden.add proc(s, p: UiNode) {.closure.} =
     correct_self(s, p, inner)
 
 template top*(anchor: UiAnchor) =
@@ -187,6 +167,10 @@ template color*(c: Color) =
 
 template color*(r, g, b: int = 255) =
   self.color = rgb(r, g, b)
+
+template color*(c: string) =
+  var nimcolor = extract_rgb(parse_color(c))
+  color(nimcolor.r, nimcolor.g, nimcolor.b)
 
 template opacity*(o: range[0f..1f]) =
   self.opacity = o
@@ -252,6 +236,10 @@ template minw*(mw: float32) =
 template minh*(mh: float32) =
   self.minh = mh
 
+template render*(inner: untyped) =
+  self.render.insert((proc(s, p: UiNode) {.closure.} =
+    correct_self(s, p, inner)))
+
 template update*(inner: untyped) =
   self.update_attributes.insert((proc(s, p: UiNode) {.closure.} =
     correct_self(s, p, inner)), 0)
@@ -306,11 +294,6 @@ template unfocus*(inner: untyped) =
     if event.kind == UiUnfocus:
       `inner`
 
-template unfocus*(inner: untyped) =
-  events:
-    if event.kind == UiUnfocus:
-      `inner`
-  
 template pressed*(inner: untyped) =
   ## Gets called when mouse button 1 gets press. Typically used with buttons
   button_release:
@@ -352,17 +335,20 @@ template border_bottom*(thickness: float32, inner: untyped) =
 
 test_my_way "sugarsyntax":
   test "children":
-    box box1:
-      box box2:
-        box box3:
-          discard
-        box box4:
-          discard
-      box box5:
-        discard
-      box box6:
-        box box7:
-          discard
+    box:
+      id box1
+      box:
+        id box2
+        box:
+          id box3
+        box:
+          id box4
+      box:
+        id box5
+      box:
+        id box6
+        box:
+          id box7
         box:
           discard
         box:
@@ -395,17 +381,20 @@ test_my_way "sugarsyntax":
       padding 10, 0, 10, 0
       padding_left 10
       padding_right 10
-      padding_top 10
+      padding_top 10     
       padding_bottom 10
       
       color 255, 255, 255
       color self.color
       border_color 255, 255, 255
       border_color self.border_color
+      color "#ffffff"
       opacity 0.5
       radius 5
       minw 1
       minh 1
+      id not_noid
+      check not_noid.id == "not_noid"
     text:
       fill self
       vcenter self
@@ -422,14 +411,16 @@ test_my_way "sugarsyntax":
       src "text.png"
 
   test "layout":
-    layout testlayout:
+    layout:
+      id testlayout
       arrange_layout:
         check self.id == "testlayout"
         check self.children.len == 2
         check self.children[0].id == "testbox"
         self.children[0].w = 40
         self.children[0].h = 20
-      box testbox:
+      box:
+        id testbox
         update:
           w 20
       box:
@@ -443,23 +434,25 @@ test_my_way "sugarsyntax":
       check self.children[0].w == 20
       check self.children[0].h == 20
   
-  test "delegate":
-    layout testlayout:
-      delegate box, UiBox:
-        color 234, 234, 23
-    check testlayout.children.len == 0
-    testlayout.add_delegate(0)
-    check testlayout.children.len == 1
-    testlayout.add_delegate(1)
-    testlayout.add_delegate(2)
-    check testlayout.children.len == 3
+  # test "delegate":
+  #   layout:
+  #     id testlayout
+  #     delegate box, UiBox:
+  #       color 234, 234, 23
+  #     check testlayout.children.len == 0
+  #     testlayout.add_delegate(0)
+  #     check testlayout.children.len == 1
+  #     testlayout.add_delegate(1)
+  #     testlayout.add_delegate(2)
+  #     check testlayout.children.len == 3
 
-    check testlayout.children[0].index == 0
-    check testlayout.children[1].index == 1
-    check testlayout.children[2].index == 2
+  #     check testlayout.children[0].index == 0
+  #     check testlayout.children[1].index == 1
+  #     check testlayout.children[2].index == 2
   
   test "min sizes":
-    box testbox:
+    box:
+      id testbox
       minw 100
       minh 100
       w 10

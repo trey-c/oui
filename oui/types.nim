@@ -63,14 +63,16 @@ type
   UpdateAttributesCb* = proc(self, parent: UiNode)
   ArrangeLayoutCb* = proc(self, parent: UiNode)
   OnEventCb* = proc(self, parent: UiNode, event: var UiEvent)
-  DrawPostCb* = proc()
+  DrawPostCb* = proc(self, parent: UiNode)
+  RenderCb* = proc(self, parent: UiNode)
   PaintCb* = proc(self, parent: UiNode, vg: NVGContext)
-  ShownCb* = proc()
-  HiddenCb* = proc()
+  ShownCb* = proc(self, parent: UiNode)
+  HiddenCb* = proc(self, parent: UiNode)
 
   UiNodeKind* = enum
     UiWindow, UiBox, UiText,
-    UiImage, UiCanvas, UiLayout
+    UiImage, UiCanvas, UiLayout,
+    UiOpenGl
 
   UiNode* = ref object
     parent*, window*: UiNode
@@ -78,6 +80,7 @@ type
     id*: string
     x*, y*, w*, h*: float32
     minw*, minh*: float32
+    rootx*, rooty*: float
     padding_top*, padding_left*, padding_bottom*, padding_right*: float32
     table*: UiTable
     visible*, force_redraw*, animating*: bool
@@ -103,6 +106,7 @@ type
       focused_node*: UiNode
       resizing*: bool
       cursor_pos*: tuple[x, y: float]
+      gl_nodes*: seq[UiNode]
     of UiBox:
       radius*: float32
       border_width*: float32
@@ -120,3 +124,5 @@ type
       arrange_layout*: seq[ArrangeLayoutCb]
     of UiImage:
       src*: string
+    of UiOpenGl:
+      render*: seq[RenderCb]

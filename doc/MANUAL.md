@@ -16,6 +16,7 @@
   * [Canvas](#canvas)
   * [Image](#image)
   * [Layout](#layout)
+  * [OpenGl](#opengl)
 - [Widgets](#widgets)
   * [Textbox](#textbox)
   * [Stack](#stack)
@@ -27,23 +28,14 @@
 
 ## Fundamentals
 
-All **`UiNode's** use the following shortcuts to assaign/get attributes
+All **`UiNode's** use the following templates
 
-- `w`
-- `h`
-- `size`
-- `top`
-- `left`
-- `bottom`
-- `right`
-- `padding_top`
-- `padding_left`
-- `padding_bottom`
-- `padding_right`
-- `color`
-- `update`
-- `events`
-- `name`
+- `w` | `h` |  `size`
+- `top` | `left` | `bottom` | `right`
+- `padding_top` | `padding_left` | `padding_bottom` | `padding_right`
+- `color` | `visble`
+- `fill` | `center` | `hcenter`
+- `update` | `shown` | `hidden` | `draw_post` | `events`
 
 **Events**
 
@@ -57,16 +49,17 @@ All **`UiNode's** use the following shortcuts to assaign/get attributes
 - `focus`
 - `unfocus`
 
-- and two very handy variables
-  * `self`
-  * `parent`
+- Other events
+  * `pressed`
 
 Nodes are used like so
 
 ```nim
-box:
-  w 20
-  h parent.h
+window:
+  size 600, 400
+  box:
+    w 20
+    h parent.h
 ```
 
 **Notice how if you resize the parent; the `box`'s `h` doesn't reflect the new parent's `h`. Fix that with an `update:`**
@@ -74,25 +67,16 @@ box:
 ```nim
 box:
   color "#ff0000"
-  echo("Prints only once for " & node.name() & " on its declaration")
+  id mycoolbox
   update:
     size 20, parent.h
-```
-
-As the `update:` name suggests, it gets called everytime there's an event or if something useful happens. You can 
-alse use `self.trigger_update_attributes()` to immediately trigger it manually
-
-Nodes and widgets also can have `id`'s
-
-```nim
-box mycoolbox:
   echo("Prints only once for " & self.name() & " on its declaration")
-  update:
-    size 20, parent.h
 box:
   update:
-    left mycoolbox.right
+    fill mycoolbox
 ```
+
+As the `update:` name suggests, it gets called everytime there's an event. Trigger one manually with `self.trigger_update_attributes()`
 
 ## Positioning UiNodes 
 
@@ -189,18 +173,20 @@ fill parent
 <td>
 
 ```nim 
-box b1:
+box:
+  id b1
   color "#ff0000"
   update:
     size 200, 200
     bottom parent.bottom
-box b2:
+box:
+  id b2
   color "#ff0000"
   update:
     size 100, 100
     bottom b1.top
     left b1.right
-box b3:
+box:
   color "#ff0000"
   update:
     right parent.right
@@ -263,16 +249,19 @@ column:
 <td>
 
 ```nim 
-box header:
+box:
+  id header
   update:
     size parent.w, 100
   color "#ff0000"
-box footer:
+box:
+  id footer
   update:
     size parent.w, 100
     bottom parent.bottom
   color "#ff0000"
-box body:
+box:
+  id bottom
   update:
     w parent.w
     top header.bottom
@@ -295,7 +284,8 @@ box body:
 ### Window
 
 ```nim
-window win:
+window:
+  id win
   title "My Window"
   size 600, 400
 ```
@@ -308,14 +298,13 @@ The window will not be visible until you call
 win.show()
 ```
 
-And you can manipulate the platform's window using:
+Below will manipulate the platform's window:
 
 ```nim
-win.native.move_window(1, 1)
-win.native.resize_window(100, 100)
+win.move(1, 1)
+win.resize(100, 100)
+win.hide()
 ```
-
-**Check** the module `oui/backend.nim` to see what other things you do with a *native* window
 
 ### Box
 
@@ -337,17 +326,35 @@ border_width 2
 border_color "#000fff"
 ```
 
+Side-specific borders can be added with `border_top` | `border_left` | `border_bottom` | `border_right`:
+
+```nim
+border_top 23:
+  color rgb(123, 244, 123)
+```
+
+P.S if your curious, heres what `border_right` looks like in *oui/sugarsyntax.nim*
+
+```nim
+template border_right*(thickness: float32, inner: untyped) =
+  box borderright:
+    update:
+      right parent.right
+      size thickness, parent.h
+      inner
+```
 ### Text
 
 ```nim
 text:
-  str "Text drawn via pango"
+  str "Text drawn via nanovg"
 ```
 
-You may change both the font family and size by calling `family`
+You may change both the font family and size with
 
 ```nim
-family "Sans Bold 27"
+face "sans"
+size 20
 ```
 
 And also align the text with `align UiLeft | UiRight | UiTop | UiBottom | UiCenter`
@@ -359,28 +366,45 @@ halign UiRight
 
 ### Canvas
 
-*The framework uses cairo for all its drawing* 
-
-Heres a helpful tutorial if your unfamilar with **cairo**: https://www.cairographics.org/tutorial/
+Heres some helpful code examples if your unfamilar with **nanovg**
+https://github.com/johnnovak/nim-nanovg/blob/master/examples/demo.nim
 
 Do not waste your time drawing outside the canvas's `w` or `h` because everything is clipped
 
 ```nim
-import cairo
-
 canvas:
   update:
     fill parent
   paint:
-    var ctx = self.surface.create()
-    ...
+    var vg = self.window.vg
+    vg.beginPath()
+    vg.rect(caretX, 0, 1.5, self.minh)
+    vg.fillColor(rgb(0, 0, 250))
+    vg.fill()
 ```
 
-**Remember `0, 0` is the node's top left, not its `x` and `y`** 
+### OpenGl
+
+*Outside 3D or 2D graphics*
+
+```nim
+opengl:
+  update:
+    fill parent
+  render:
+    glClearColor(1.0, 1.0, 1.0, 1.0)
+    glClear(GL_COLOR_BUFFER_BIT)
+```
 
 ### Layout
 
-> TODO
+
+```nim
+layout:
+  arrange_layout:
+    for child in node.children:
+      child.y = 100
+```
 
 ### Image
 
@@ -398,23 +422,36 @@ image:
 *Useful for grabbing user input*
 
 ```nim
-var myemailtext = ""
-textbox email:
+var emailtext = ""
+textbox:
   update:
     size parent.w / 2, parent.h
   events:
     key_press:
-      echo myemailtext
-do: myemailtext
+      echo emailtext
+do: emailtext
 ```
 
-*Useful for password's or other sensitive information*
-
-You can **hide** `myemailtext` with `*` with
+**Need to hide sensitive information such has passwords?**
 
 ```nim
 do: myemailtext
 do: true
+```
+
+**You wanna add an image/icon to your textbox? Move its text!**
+
+```nim
+textbox:
+  image:
+    id whatever
+    src ...
+    size 20, 20
+  update:
+    var txt = self.childrenp[0]
+    txt.set_left(whatever.right)
+    txt.padding_left = 10
+  ...
 ```
 
 ### Stack
@@ -422,16 +459,18 @@ do: true
 *Useful for creating pages*
 
 ```nim
-stack my_page:
+stack:
+  id mypage
   update:
     size parent.w / 2, parent.h
-  box box1:
+  box:
     color "#ff0000"
     visible true # node shown by default
-  box box2:
+  box:
     color "#00ff00"
     visible false # node hidden by default
-  box box3:
+  box:
+    id box3
     color "#0000ff"
     visible false # node hidden by default
 ```
@@ -442,14 +481,14 @@ You switch the displayed node by calling `stack_switch`
 import oui/animation
 
 ...
-my_page.stack_switch(box2):
-  asyncCheck my_page.slide_node(box2, UiRight)
+my_page.stack_switch(box3):
+  asyncCheck my_page.slide_node(box3, UiRight)
 ```
 
 Or skip out on animating the transition with the handy `discard` statement
 
 ```nim
-...(box2):
+...(box3):
   discard
 ```
 
@@ -460,7 +499,7 @@ Check [Tables](#tables) first
 ```nim
 var table = UiTable.init()
 ...
-list customers:
+list:
   model table
   delegate:
     box:
@@ -498,8 +537,8 @@ table.add_customer("Bob", "4")
 Grab data using
 
 ```nim
-const index = 0
-echo(table[index][ord CustomerName] & " is " & table[index][ord CustomerAge] & " years old"
+... self.index is 0
+echo(table[self.index][ord CustomerName] & " is " & table[self.index][ord CustomerAge] & " years old"
 # Prints 'Fred is 29 years old"
 ```
 
@@ -511,14 +550,17 @@ Heres an example of a simple **button** implementation
 
 ```nim 
 decl_style button: 
-  normal: "#212121"
-  hover: "#313113"
-  active: "#555555"
-decl_widget button, box:
-  style: ButtonStyle = button_style
-do: 
-  color style.normal
-  events:
+  normal: rgb(241, 241, 241)
+  hover: rgb(200, 200, 200)
+  active: rgb(100, 100, 100)
+  border: rgb(210, 210, 210)
+
+template button*(inner: untyped, style: ButtonStyle = button_style) =
+  box:
+    color style.normal
+    radius 10
+    border_width 2
+    border_color style.border
     mouse_enter:
       color style.hover
       self.queue_redraw()
@@ -531,53 +573,12 @@ do:
     button_release:
       color style.hover
       self.queue_redraw()
+    inner
 ```
 
 **More examples can be found in the module** `oui/ui.nim`
 
 Further sections will hopefully explain to you whats going on above; this is just a quick example
-
-### Declaring
-
-Widgets use a convenient macro called `decl_widget` that defines a template declaration for you
-
-```nim
-...
-decl_widget button, box:
-  style: ButtonStyle = button_style
-do:
-  ...
-```
-
-Which expands to
-
-```nim
-template button*(id, inner: untyped, style: ButtonStyle = button_style) = 
-  box id:
-    ...
-    inner
-```
-
-Widgets can have multiple or even zero *bonus* parameters (not the `id` and `inner` params)
-
-Two examples would be a **Textbox**, and **List**
-
-```nim
-...
-decl_widget textbox, box:
-  password: bool = false
-  style: TextboxStyle = textbox_style
-do:
-  ...
-```
-
-```nim
-...
-decl_widget list, row:
-  discard
-do:
-  ...
-```
 
 ### Styling
 
@@ -585,32 +586,32 @@ Widgets typically have an optional `style` parameter placed in its declaration, 
 
 ```nim 
 decl_style button: 
-  normal: "#212121"
-  hover: "#313113"
-  active: "#555555"
-... 
-  style: ButtonStyle = button_style
-do: 
-  ...
+  normal: rgb(241, 241, 241)
+  hover: rgb(200, 200, 200)
+  active: rgb(100, 100, 100)
+  border: rgb(210, 210, 210)
+  
+template ..., style: ButtonStyle = button_style)
 ```
 
 The `decl_style` macro declared a named tuple called **ButtonStyle**, and a global variable with the name being **button_style** used with every button by default. Values are obviously changeable
 ```nim
-button_style.hover = "#ff0000"
+button_style.hover = rgb(100, 0, 0)
 ```
 
 Or you may swap out the default style entirely on a per-widget basis
 
 ```nim
 var better_button_style: ButtonStyle
-better_button_style.normal = "#00ff00"
+better_button_style.normal = rgb(0, 100, 0)
 # ...
-button btn1:
+button:
+  id btn
   update:
     size 100, 50
-button btn2:
+button:
   update:
     size 100, 50
-    left btn1.right
+    left btn.right
 do: better_button_style
 ```

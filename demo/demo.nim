@@ -13,89 +13,87 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import oui/ui
+import oui
+import nanovg
 
-const 
-  sidebar_color = "#00b07e"
-  content_color = "#eeeeee"
+template items() =
+  ## Showcases both the textbox and list widgets
 
-template demo_sidebar() =
-  box sidebar:
-    color sidebar_color
+  var itemstr = "I hate life"
+  textbox:
+    minw 200
+    minh 35
+    discard
+  do: itemstr
+  do: "Add Item"
+
+  var itemstr1 = "I hate life"
+  textbox:
     update:
-      self.y = 10
-      w 175
-      h app.h
-    text:
-      str "Ocicat\nUi\nFramework"
-      family "Sans Bold 14"
-      color content_color
-      halign UiRight
-      valign UiTop
-      update:
-        top sidebar.top
-        left sidebar.left
-        right sidebar.right
-        h 80
-    var mytxt = "fsadf"
-    textbox tt:
-      update:
-        bottom parent.bottom
-        w parent.w
-        h 50
-    do: mytxt
-    textbox:
-      update:
-        bottom tt.top
-        padding_bottom 10
-        w parent.w
-        h 50
-    do: mytxt
+      right parent.right
+      # padding_right 25
+      
+      padding_right 29
+    minw 200
+    minh 35
+  do: itemstr1
+  do: "Add Item"
 
-
-template demo_content() =
-  box content:
-    color content_color
-    update:
-      left sidebar.right
-      right app.right
-      h app.h
-      w self.w - 20
-    box:
-      color "#ff0000"
-      update:
-        right parent.right
-        w 200
-      box:
-        color "#0f0f0f"
-        update:
-          w parent.w / 2
-          h 100
-
-    button mrbox:
-      var count = 0
-      update:
-        w 200
-        h 50
-        right parent.right
-      text mysicktext:
-        color "#111111"
-        update:
-          fill parent
-          h 50
-          str $count
-      events:
-        button_press:
-          count.inc
-          echo "Button with counter clicked"
-          self.queue_redraw()
-
-window app:
+window:
+  id app
   title "Demo"
   w 600
   h 400
-  demo_sidebar()
-  demo_content()
+  scrollable:
+    update:
+      fill parent
+    items()
+    text:
+      id smexy
+      str "Ocicat Ui Framework"
+      update:
+        bottom parent.bottom
+        h 50
+        w parent.w
+        padding_bottom 25
+        halign UiCenter
+    box:
+      id pp
+      size 100, 100
+    button:
+      id crap
+      text:
+        str "Click me"
+        halign UiCenter
+        valign UiCenter
+      update:
+        size 100, 30
+        top pp.bottom
+        left pp.right
+    button:
+      text:
+        update:
+          fill parent
+        str "Click me"
+        halign UiCenter
+        valign UiCenter
+      update:
+        size 100, 50
+        top crap.bottom
+        left pp.right
+    box:
+      id tt
+      color 100, 100, 100
+      size 100, 50
+      update:
+        top pp.bottom
+    box:
+      id ttt
+      color 100, 0, 100
+      size 100, 100
+      update:
+        top tt.bottom
  
+
 app.show()
 oui_main()

@@ -1,4 +1,4 @@
-# Copyright © 2020 Trey Cutter <treycutter@protonmail.com>
+﻿# Copyright © 2020 Trey Cutter <treycutter@protonmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,11 +51,14 @@ proc set_left*(node: UiNode, left: UiAnchor) =
   node.x = (float32 left) - node.padding_left
 
 proc right*(node: UiNode): UiAnchor =
-  UiAnchor(node.w + node.padding_left)
+  UiAnchor(node.x + node.w + node.padding_left)
 
 proc set_right*(node: UiNode, right: UiAnchor) =
   if node.left_anchored:
-    node.w = (float32 right) - node.x - node.padding_right
+    if node.parent != nil and float(node.parent.right) == float(right):
+      node.w = (float32 right) - node.x - node.padding_right - node.parent.x - node.parent.padding_left
+    else:
+      node.w = (float32 right) - node.x - node.padding_right
   else:
     if node.parent != nil:
       if float32(node.parent.right) == float32 right:
@@ -64,11 +67,14 @@ proc set_right*(node: UiNode, right: UiAnchor) =
     node.x = (float32 right) - node.w - node.padding_right
 
 proc bottom*(node: UiNode): UiAnchor =
-  UIAnchor(node.h + node.padding_top)
+    UIAnchor(node.y + node.h + node.padding_top)
 
 proc set_bottom*(node: UiNode, bottom: UiAnchor) =
   if node.top_anchored:
-    node.h = (float32 bottom) - node.y - node.padding_bottom
+    if node.parent != nil and float(node.parent.bottom) == float(bottom):
+      node.h = (float32 bottom) - node.y - node.padding_bottom - node.parent.y - node.parent.padding_top
+    else:
+      node.h = (float32 bottom) - node.y - node.padding_bottom
   else:
     if node.parent != nil:
       if float32(node.parent.bottom) == float32 bottom:
@@ -98,6 +104,8 @@ proc trigger_update_attributes*(node: UiNode) =
         al(node, node.parent)
   for child in node.children:
     child.trigger_update_attributes()
+    child.rootx = node.rootx + child.x
+    child.rooty = node.rooty + child.y
   
   when not defined release:
     if node.w <= 0:
@@ -109,16 +117,16 @@ proc axis_alignment(node: UiNode, inkw, inkh: float32): tuple[x, y: float32] =
   const padding = 5
   case node.halign:
   of UiRight, UiTop:
-    result.x = padding
+    result.x = node.w - inkw - padding
   of UiCenter:
     result.x = node.w / 2 - inkw / 2
   of UiLeft, UiBottom:
-    result.x = node.w - inkw - padding
+    result.x = padding
   case node.valign:
   of UiTop, UiRight:
     result.y = padding
   of UiCenter:
-    result.y = node.h / 2 - inkh
+    result.y = node.h / 2 - inkh / 2
   of UiBottom, UiLeft:
     result.y = node.h - inkh - padding
 
@@ -143,6 +151,7 @@ proc draw_children(node: UiNode, vg: NVGContext) =
       child.window = node.window 
     vg.save()
     vg.translate(child.x, child.y)
+    # vg.scissor(0, 0, child.w, child.h)
     child.draw()
     vg.restore()
 
@@ -151,6 +160,7 @@ proc draw(node: UiNode) =
     ouidebug "shoud be speed drawing " & node.name()
   else:
     ouidebug "slow drawing " & $node.name(true)
+  
 
   node.oldw = node.w
   node.oldh = node.h
@@ -166,12 +176,8 @@ proc draw(node: UiNode) =
       draw_rounded_rectangle(vg, node.color, node.opacity, 0f, 0f, node.w, node.h,
         node.radius, node.border_width, node.border_color)
     of UiText:
-      var
-        pixels = text_pixel_size(vg, node.str, node.face)
-        align = node.axis_alignment(pixels.w, pixels.h)
-      draw_text(vg, node.str, node.face, node.color, node.size, 0, 0)
-      node.minw = pixels.w
-      node.minh = pixels.h
+      var pos = node.axis_alignment(vg.textWidth(node.str), node.size)
+      vg.draw_text(node.str, node.face, node.color, node.size, pos.x, pos.y)
     of UiCanvas:
         vg.save()
         for p in node.paint:  
@@ -187,7 +193,7 @@ proc draw(node: UiNode) =
   for draw_post in node.draw_post:
     if draw_post.isNil() == false:
       {.cast(gcsafe).}:
-        draw_post()
+        draw_post(node, node.parent)
   node.force_redraw = false
 
 proc handle_event*(window, node: UiNode, ev: var UiEvent) {.gcsafe.}
@@ -266,11 +272,12 @@ proc draw_opengl*(window: UiNode) =
   if window.buffer != nil:
     nvgluDeleteFramebuffer(window.buffer)
     window.buffer = nil
-  
   window.buffer = nvgluCreateFramebuffer(window.vg, int window.w, int window.h, {ifRepeatX, ifRepeatY})
   glViewport(0, 0, fbWidth, fbHeight)       
   glClearColor(0.0, 0.0, 0.0, 0.0)
   glClear(GL_COLOR_BUFFER_BIT or GL_STENCIL_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+  glCullFace(GL_BACK)
+  glFrontFace(GL_CCW)
   nvgluBindFramebuffer(window.buffer)
   window.vg.beginFrame(cfloat window.w, cfloat window.h, 1.0)
   window.trigger_update_attributes()
@@ -281,20 +288,31 @@ proc draw_opengl*(window: UiNode) =
   window.vg.fillPaint(p)
   window.vg.fill()
   window.vg.endFrame()
+  
+  for child in window.gl_nodes: 
+    if child.kind == UiOpenGl:
+      glEnable(GL_SCISSOR_TEST)
+      glScissor(int32 child.rootx, int32 child.rooty, int32 child.w, int32 child.h)
+      glClearColor(0, 0, 0, 0)
+      glClear(GL_COLOR_BUFFER_BIT or GL_STENCIL_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+      for render in child.render:
+        render(child, child.parent)
+      glDisable(GL_SCISSOR_TEST)
 
 when glfw_supported():
   var glfw_not_inited: bool = true
   proc create_glfw_window(window: UiNode): Window =
     if glfw_not_inited:
       glfw.initialize()
-      
+  
     var cfg = DefaultOpenglWindowConfig
     cfg.size = (w: int window.w, h: int window.h)
     cfg.title = "oui_glfw_window"
     cfg.resizable = true
     cfg.transparentFramebuffer = true
     cfg.bits = (r: 8, g: 8, b: 8, a: 8, stencil: 8, depth: 16)
-    cfg.version = glv30
+    cfg.version = glv20
+    cfg.debugContext = true
     result = newWindow(cfg)
     glfw.makeContextCurrent(result) 
     if glfw_not_inited:
@@ -345,9 +363,23 @@ when glfw_supported():
           x: window.cursor_pos.x, y: window.cursor_pos.y)
         window.handle_event(window, e)
 
-proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
+proc ensure_minimum_size(node: UiNode) =
+  ## Resizes the node's w/h when < minw/minh
+  node.update_attributes.add proc(s, p: UiNode) =
+    if s.kind == UiText:
+      if s.window != nil or s.window.vg != nil:
+        s.minw = s.window.vg.textWidth(s.str)
+        s.minh = s.size * 2
+    if s.w < s.minw and s.minw > 0:
+      s.w = s.minw
+    if s.h < s.minh and s.minh > 0:
+      s.h = s.minh
+    if s.kind == UiWindow:
+      s.handle.set_size_limits(int32 s.minw, int32 s.minh, -1, -1)
+
+proc init*(T: type UiNode, k: UiNodeKind): UiNode =
   result = UiNode(kind: k,
-    id: id,
+    id: "noid",
     x: 0f,
     y: 0f,
     w: 0f,
@@ -366,30 +398,28 @@ proc init*(T: type UiNode, id: string, k: UiNodeKind): UiNode =
     opacity: 1f,
     left_anchored: false,
     top_anchored: false)
-   
+
+  result.ensure_minimum_size()
   if result.kind == UiWindow:
     result.window = result
-    result.title = id
+    result.title = "oui - Ocicat Ui Framework"
     result.is_popup = false
     result.focused_node = nil
     result.w = 100
     result.h = 100
-    result.color = rgb(18, 18, 18)
+    result.color = rgb(228, 228, 228)
     when glfw_supported():
       result.handle = create_glfw_window(result)
     result.vg = nvgCreateContext({nifStencilStrokes})
+    var font = result.vg.createFont("sans", "Roboto-Regular.ttf")
+    if font == NoFont:
+      oui_error "Couldn't load font" 
+    discard addFallbackFont(result.vg, font, font)
     windows.add result
-
   if result.kind == UiText:
-    result.color = rgb(45, 45, 45)
-    result.valign = UiCenter
-    result.halign = UiCenter
-
-  result.update_attributes.add proc(s, p: UiNode) =
-    if s.w < s.minw and s.minw > 0:
-      s.w = s.minw
-    if s.h < s.minh and s.minh > 0:
-      s.h = s.minh
+    result.face = "sans"
+    result.size = 18
+    result.color = rgb(35, 35, 35)
 
 proc fill*(node, target: UiNode) =
   node.set_left target.left
@@ -418,6 +448,8 @@ proc add*(node: UiNode, child: UiNode) =
     return
   child.parent = node
   child.window = node.window
+  if child.kind == UiOpenGl:
+    child.window.gl_nodes.add(child)
   node.children.add(child)
 
 proc add_delegate*(node: UiNode, index: int) =
@@ -446,7 +478,7 @@ proc show*(node: UiNode) =
       node.handle.shouldClose = false
   node.visible = true
   for s in node.shown:
-    s()
+    s(node, node.parent)
   for child in node.children:
     child.show()
 
@@ -458,14 +490,14 @@ proc hide*(node: UiNode) =
       node.handle.shouldClose = true
   node.visible = false
   for h in node.hidden:
-    h()
+    h(node, node.parent)
   for child in node.children:
     child.hide()
 
 test_my_way "node":
   var
-    box1 = UiNode.init("box1", UiBox)
-    box2 = UiNode.init("box2", UiBox)
+    box1 = UiNode.init(UiBox)
+    box2 = UiNode.init(UiBox)
   box1.w = 100
   box1.h = 100
   box2.w = 200
@@ -483,22 +515,22 @@ test_my_way "node":
     check box2.contains(105, 99)
 
   test "window":
-    var win = UiNode.init("app", UiWindow)
+    var win = UiNode.init(UiWindow)
     win.color = black(245)
     box1.color = red(255)
     box2.color = blue(255)
     box1.update_attributes.add proc(s, p: UiNode) =
       s.set_right(p.right)
       s.set_bottom(p.bottom)
-   
+    
     win.add box1 
     win.add box2
-    var box3 = UiNode.init("box3", UiBox)
+    var box3 = UiNode.init(UiBox)
     box3.w = 50
     box3.h = 50
     box3.color = green(200)
     box2.add box3
-    var box4 = UiNode.init("box3", UiBox)
+    var box4 = UiNode.init(UiBox)
     box4.w = 50
     box4.h = 50
     box4.color = green(150)

@@ -17,18 +17,14 @@ import strutils, terminal
 export terminal
 import nanovg
 
-const FONT_SIZE_FACTOR* = 12
-
 proc draw_text*(vg: NVGContext, text, face: string, color: Color, size,
     x, y: float32) =
   vg.beginPath()
-  vg.fontSize(size * FONT_SIZE_FACTOR)
+  vg.fontSize(size)
   vg.fontFace(face)
   vg.fillColor(color)
-  var t = vg.text(x, y, text)
-
-proc text_pixel_size*(vg: NVGContext, text, face: string): tuple[w, h: float] =
-  (w: 35.0, h: 100.0)
+  vg.textAlign(haLeft, vaTop)
+  discard vg.text(x, y, text)
 
 proc draw_rounded_rectangle*(vg: NVGContext, color: Color, opacity, x, y, w,
     h, rad, border_width: float32, border_color: Color) =

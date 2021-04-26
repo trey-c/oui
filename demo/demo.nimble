@@ -7,4 +7,3 @@ bin = @["demo"]
 
 requires "nim >= 1.4.0"
 requires "oui"
-requires "testmyway"
