@@ -147,20 +147,19 @@ proc draw_children(node: UiNode, vg: NVGContext) =
     if child.visible == false:
       continue
     if child.window == nil:
-      # Delegates don't get a window when being created?? thats why this is here
-      child.window = node.window 
+      child.window = node.window  # Delegates don't get a window when being created??
     vg.save()
     vg.translate(child.x, child.y)
-    # vg.scissor(0, 0, child.w, child.h)
+    vg.scissor(0, 0, child.w, child.h)
     child.draw()
     vg.restore()
 
 proc draw(node: UiNode) =
+  # echo node.name() & $node.visible
   if (node.w == node.oldw and node.h == node.oldh) and node.force_redraw == false:
     ouidebug "shoud be speed drawing " & node.name()
   else:
     ouidebug "slow drawing " & $node.name(true)
-  
 
   node.oldw = node.w
   node.oldh = node.h
@@ -173,19 +172,35 @@ proc draw(node: UiNode) =
       draw_rounded_rectangle(vg, node.color, node.opacity, 0f, 0f, node.w, node.h, 
         0f, 0f, black(1))
     of UiBox:
-      draw_rounded_rectangle(vg, node.color, node.opacity, 0f, 0f, node.w, node.h,
-        node.radius, node.border_width, node.border_color)
+      vg.beginPath()
+      vg.roundedRect(0, 0, node.w, node.h, node.radius)
+      if node.gradient.active:
+        let bg = vg.linear_gradient(node.gradient.sx, node.gradient.sy, 
+          node.gradient.ex, node.gradient.ey, 
+          node.gradient.color1, node.gradient.color2)
+        vg.fill_paint(bg)
+      else:
+        vg.fill_color node.color
+      vg.fill()
+
+      if node.border_width < 0:
+        return
+      vg.beginPath()
+      vg.roundedRect(node.x, node.y, node.w, node.h, node.radius)
+      vg.stroke_color(node.border_color)
+      vg.stroke()
+
     of UiText:
       var pos = node.axis_alignment(vg.textWidth(node.str), node.size)
       vg.draw_text(node.str, node.face, node.color, node.size, pos.x, pos.y)
     of UiCanvas:
         vg.save()
-        for p in node.paint:  
+        for p in node.paint:
           {.cast(gcsafe).}:
             p(node, node.parent, vg)
         vg.restore()
     of UiImage:
-      draw_image(vg, node.src)
+      draw_image(vg, node.src, node.w, node.h)
     else:
       discard
   vg.restore()
@@ -246,7 +261,7 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
       on_ev(node, node.parent, ev)
   for n in node.children:
     if n.visible == false or n.animating:
-      break
+      continue
     if n.contains(float32(ev.x), float32(ev.y)) or n.has_focus:
       if ev.kind == UiMousePress and ev.button == mb1:
         if n.accepts_focus and n.has_focus == false:       
@@ -397,7 +412,8 @@ proc init*(T: type UiNode, k: UiNodeKind): UiNode =
     color: rgb(255, 255, 255),
     opacity: 1f,
     left_anchored: false,
-    top_anchored: false)
+    top_anchored: false,
+    gradient: (sx: 0.0, sy: 0.0, ex: 0.0, ey: 0.0, active: false, color1: white(255), color2: white(255)))
 
   result.ensure_minimum_size()
   if result.kind == UiWindow:

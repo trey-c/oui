@@ -163,12 +163,15 @@ template border_color*(r, g, b: int = 255) =
   self.border_color = rgb(r, g, b)
 
 template color*(c: Color) =
+  self.gradient.active = false
   self.color = c
 
 template color*(r, g, b: int = 255) =
+  self.gradient.active = false
   self.color = rgb(r, g, b)
 
 template color*(c: string) =
+  self.gradient.active = false
   var nimcolor = extract_rgb(parse_color(c))
   color(nimcolor.r, nimcolor.g, nimcolor.b)
 
@@ -259,12 +262,12 @@ template key_release*(inner: untyped) =
     if event.kind == UiKeyRelease:
       `inner`
 
-template button_press*(inner: untyped) =
+template mouse_press*(inner: untyped) =
   events:
     if event.kind == UiMousePress:
       `inner`
 
-template button_release*(inner: untyped) =
+template mouse_release*(inner: untyped) =
   events:
     if event.kind == UiMouseRelease:
       `inner`
@@ -296,9 +299,17 @@ template unfocus*(inner: untyped) =
 
 template pressed*(inner: untyped) =
   ## Gets called when mouse button 1 gets press. Typically used with buttons
-  button_release:
+  mouse_release:
     if event.button == mb1:
       inner
+
+template gradient*(x, y: float, c1, c2: Color) =
+  self.gradient.active = true
+  self.gradient.ex = x
+  self.gradient.ey = y
+  self.gradient.sx = self.w / 2
+  self.gradient.color1 = c1
+  self.gradient.color2 = c2
 
 template arrange_layout*(inner: untyped) =
   self.arrange_layout.add proc(s, p: UiNode) {.closure.} =
