@@ -70,22 +70,16 @@ proc text_box_key_press*(text: var string, event: var UiEvent, password, focused
   of keyRight:
     caretIndex += 1
   of keyBackspace:
-    text.delete(caretIndex, caretIndex)
-    caretIndex -= 1
-  of keySpace:
-    if password:
-      text.add("*")
+    if text.len() > 0:
+      text.delete(text.len() - 1, text.len())
+      caretIndex -= 1
     else:
-      text.add(" ")
+      text.set_len(0)
   else:
-    if password:
-      text.add("*")
+    if event.mods.contains(mkShift) or event.mods.contains(mkCapsLock):
+      text.insert(event.ch.to_upper(), text.len())
     else:
-      caretIndex.inc
-      if event.mods.contains(mkShift) or event.mods.contains(mkCapsLock):
-        text.insert(event.ch.to_upper(), caretIndex)
-      else:
-        text.insert(event.ch.to_lower(), text.len)
+      text.insert(event.ch.to_lower(), text.len())
 
 decl_style textbox: 
   normal: rgb(241, 241, 241)
@@ -105,20 +99,25 @@ template textbox*(inner: untyped, textstr: var string, label: string, password: 
     border_width 2
     color style.normal
     border_color style.border_normal
-
-    text: 
+    text:
       size 15
       face "sans"
       halign UiLeft
       valign UiCenter
       update:
         fill parent
-        str textstr
+        if password:
+          var smth = ""
+          for e in textstr:
+            smth.add("*")
+          str smth
+        else:
+          str textstr
         if parent.has_Focus:
           color style.txt_focus
         else:
           color style.txt
-      mouse_press:
+      button_press:
         nglyphs = self.window.vg.textGlyphPositions(self.x, self.y, textstr,
                                             0, textstr.len - 1, glyphs)
         for j in 0..<nglyphs:
@@ -137,7 +136,6 @@ template textbox*(inner: untyped, textstr: var string, label: string, password: 
       text_box_key_press(textstr, event, password, self.has_focus, caretIndex)
       self.queue_redraw()
     draw_post:
-      
       var vg = self.window.vg
       vg.beginPath()
       for j in 0..<nglyphs:
