@@ -55,10 +55,10 @@ template button*(inner: untyped, style: ButtonStyle = button_style) =
     mouse_leave:
       color style.normal
       self.queue_redraw()
-    button_press:
+    mouse_press:
       color style.active
       self.queue_redraw()
-    button_release:
+    mouse_release:
       color style.hover
       self.queue_redraw()
     inner
@@ -81,10 +81,11 @@ proc text_box_key_press*(text: var string, event: var UiEvent, password, focused
     if password:
       text.add("*")
     else:
+      caretIndex.inc
       if event.mods.contains(mkShift) or event.mods.contains(mkCapsLock):
         text.insert(event.ch.to_upper(), caretIndex)
       else:
-        text.insert(event.ch.to_lower(), caretIndex)
+        text.insert(event.ch.to_lower(), text.len)
 
 decl_style textbox: 
   normal: rgb(241, 241, 241)
@@ -104,7 +105,8 @@ template textbox*(inner: untyped, textstr: var string, label: string, password: 
     border_width 2
     color style.normal
     border_color style.border_normal
-    text:
+
+    text: 
       size 15
       face "sans"
       halign UiLeft
@@ -116,7 +118,7 @@ template textbox*(inner: untyped, textstr: var string, label: string, password: 
           color style.txt_focus
         else:
           color style.txt
-      button_press:
+      mouse_press:
         nglyphs = self.window.vg.textGlyphPositions(self.x, self.y, textstr,
                                             0, textstr.len - 1, glyphs)
         for j in 0..<nglyphs:
@@ -153,7 +155,7 @@ template combobox*(inner: untyped) =
     delegate text, UiText:
       str "idk"
   textbox:
-    button_press:
+    mouse_press:
       up.show()
       up.move_window(ev.xroot, ev.yroot)
     inner
@@ -181,7 +183,7 @@ template scrollable*(inner: untyped) =
         child.y = float32 yoffset
     mouse_leave:
       swiping = false
-    button_press:
+    mouse_press:
       if event.button == mb1:
         swiping = true
       if event.button == mb4:
@@ -189,7 +191,7 @@ template scrollable*(inner: untyped) =
       elif event.button == mb5:
         yoffset = yoffset - 8
       self.queue_redraw()
-    button_release:
+    mouse_release:
       if event.button == mb1:
         swiping = false
     mouse_motion:

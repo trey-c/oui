@@ -95,6 +95,7 @@ type
     opacity*: range[0f..1f]
     left_anchored*, top_anchored*: bool
     oldw*, oldh*: float32
+    gradient*: tuple[sx, sy, ex, ey: float, active: bool, color1, color2: Color]
     case kind*: UiNodeKind
     of UiWindow:
       when glfw_supported():
@@ -124,5 +125,7 @@ type
       arrange_layout*: seq[ArrangeLayoutCb]
     of UiImage:
       src*: string
+      data*: Image
+      datapaint*: Paint
     of UiOpenGl:
       render*: seq[RenderCb]

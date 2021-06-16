@@ -40,10 +40,13 @@ proc draw_rounded_rectangle*(vg: NVGContext, color: Color, opacity, x, y, w,
   vg.strokeColor(border_color)
   vg.stroke()
 
-proc draw_image*(vg: NVGContext, path: string) =
-  vg.beginPath()
-  discard vg.createImage(path, {})
-  vg.fill()
+proc draw_image*(vg: NVGContext, path: string, w, h: float) =
+  # vg.beginPath()
+  # var img = vg.image_pattern(0, 0, 50, 50, 0, vg.createImage(path), 1)
+  # vg.rect(0, 0, 50, 50)
+  # vg.fill_paint(img)
+  # vg.fill()
+  discard
 
 proc str_to_camel_case*(
   str: string): string =
