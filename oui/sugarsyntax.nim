@@ -98,13 +98,15 @@ var $1 {.inject.} = self
 $1.id = "$1"
   """ % [str.str_val])
 
-template delegate*(call: untyped, kind: UiNodeKind, inner: untyped) =
+template delegate*(inner: untyped) =
   self.delegate = proc(tmptable: UiTable, tmpindex: int): UiNode =
     var
       table {.inject.} = tmptable
       index {.inject.} = tmpindex
-    node delegate, kind, inner, true
-    return delegate
+    static:
+      parents.set_len 0
+
+    inner
 
 template paint*(inner: untyped) =
   self.paint.add proc(s, p: Uinode, tmpctx: ptr Context) {.closure.} =
