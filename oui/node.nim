@@ -382,9 +382,10 @@ proc ensure_minimum_size(node: UiNode) =
   ## Resizes the node's w/h when < minw/minh
   node.update_attributes.add proc(s, p: UiNode) =
     if s.kind == UiText:
-      if s.window != nil or s.window.vg != nil:
-        s.minw = s.window.vg.textWidth(s.str)
-        s.minh = s.size * 2
+      if s.window != nil:
+        if s.window.vg != nil:
+          s.minw = s.window.vg.textWidth(s.str) + s.size
+          s.minh = s.size * 2
     if s.w < s.minw and s.minw > 0:
       s.w = s.minw
     if s.h < s.minh and s.minh > 0:
