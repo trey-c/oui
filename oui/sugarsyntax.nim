@@ -109,8 +109,7 @@ template delegate*(inner: untyped) =
     inner
 
 template paint*(inner: untyped) =
-  self.paint.add proc(s, p: Uinode, tmpctx: ptr Context) {.closure.} =
-    ctx = tmpctx
+  self.paint.add proc(s, p: Uinode, ctx: NVGContext) {.closure.} =
     correct_self(s, p, inner)
 
 template draw_post*(inner: untyped) =
@@ -314,25 +313,25 @@ template gradient*(x, y: float, c1, c2: Color) =
   self.gradient.color2 = c2
 
 template arrange_layout*(inner: untyped) =
-  self.arrange_layout.add proc(s, p: UiNode) {.closure.} =
-    correct_self(s, p, inner)
+  self.arrange_layout.insert((proc(s, p: UiNode) {.closure.} =
+    correct_self(s, p, inner)), 0)
 
 template border_top*(thickness: float32, inner: untyped) =
-  box bordertop:
+  box:
     update:
       top parent.top
       size parent.w, thickness
       inner
 
 template border_left*(thickness: float32, inner: untyped) =
-  box borderleft:
+  box:
     update:
       left parent.left
       size thickness, parent.h
       inner
 
 template border_right*(thickness: float32, inner: untyped) =
-  box borderright:
+  box:
     update:
       top parent.top
       right parent.right
@@ -340,7 +339,8 @@ template border_right*(thickness: float32, inner: untyped) =
       inner
 
 template border_bottom*(thickness: float32, inner: untyped) =
-  box borderbottom:
+  box:
+    id borderbottom
     update:
       bottom parent.bottom
       size parent.w, thickness

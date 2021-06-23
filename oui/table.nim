@@ -47,6 +47,12 @@ proc clear*(table: UiTable) =
   table.list.set_len(0)
   table.count = 0
 
+iterator loop*(table: UiTable): int =
+  var i = 0
+  for t in table.list:
+    yield i
+    i.inc
+
 macro declare_table_flags(name: untyped, args: varargs[string]) =
   var 
     i = 0

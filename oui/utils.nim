@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-import strutils, terminal
+import strutils, terminal, os
 export terminal
 import nanovg
 
@@ -62,16 +62,23 @@ proc str_to_camel_case*(
     else:
       result.add(c)
 
-template ouidebug*[T](t: T) =
-  ## Wraps `styled_echo` to remove the statement when -d:ouidebug isn't defined
-  when defined ouidebug: 
-    styled_echo fgGreen, "ouidebug  ", resetStyle, t
+template oui_debug*[T](t: T) =
+  ## Wraps `styled_echo`
+  styled_echo fgGreen, "oui_debug  ", resetStyle, t
 
-template ouiwarning*[T](t: T) =
-  ## Wraps `styled_echo` to remove the statement when -d:ouidebug isn't defined
-  when defined ouidebug: 
-    styled_echo fgYellow, "ouiwarning ", resetStyle, t
+template oui_warning*[T](t: T) =
+  ## Wraps `styled_echo`
+  styled_echo fgYellow, "oui_warning ", resetStyle, t
 
-template ouierror*[T](t: T) =
+template oui_error*[T](t: T) =
   ## Wraps `styled_echo` with an error prefix
-  styled_echo fgRed, "ouierror ", resetStyle, t
+  styled_echo fgRed, "oui_error ", resetStyle, t
+
+proc load_font_by_name*(vg: NVGContext, name: string) =
+  ## Loads from oui's default font location
+  when defined windows:
+    var loc = get_home_dir() & ".oui\\fonts\\" & name & ".ttf"
+  var font = vg.createFont(name, loc)
+  if font == NoFont:
+    oui_error "Couldn't load font: " & loc 
+  discard addFallbackFont(vg, font, font)

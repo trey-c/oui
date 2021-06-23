@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import nimclipboard/libclipboard
 import macros, strutils, glfw
 import nanovg except text
 export strutils
@@ -46,7 +47,7 @@ decl_style button:
 template button*(inner: untyped, style: ButtonStyle = button_style) =
   box:
     color style.normal
-    radius 10
+    radius 2
     border_width 2
     border_color style.border
     mouse_enter:
@@ -101,11 +102,10 @@ template textbox*(inner: untyped, textstr: var string, label: string, password: 
     border_color style.border_normal
     text:
       size 15
-      face "sans"
-      halign UiLeft
-      valign UiCenter
       update:
-        fill parent
+        vcenter parent
+        left parent.left
+        padding_left 5
         if password:
           var smth = ""
           for e in textstr:
@@ -117,7 +117,7 @@ template textbox*(inner: untyped, textstr: var string, label: string, password: 
           color style.txt_focus
         else:
           color style.txt
-      button_press:
+      mouse_press:
         nglyphs = self.window.vg.textGlyphPositions(self.x, self.y, textstr,
                                             0, textstr.len - 1, glyphs)
         for j in 0..<nglyphs:
@@ -135,6 +135,11 @@ template textbox*(inner: untyped, textstr: var string, label: string, password: 
         return
       text_box_key_press(textstr, event, password, self.has_focus, caretIndex)
       self.queue_redraw()
+
+      if event.key == keyRightAlt:
+        var cb = clipboard_new(nil)
+        textstr.add cb.clipboard_text()
+        cb.clipboard_free()
     draw_post:
       var vg = self.window.vg
       vg.beginPath()
@@ -221,23 +226,64 @@ template stack*(inner: untyped) =
         node.fill self
     inner
 
+template bargraph*(inner: untyped, data: var seq[tuple[xname: string, yname: string]], ycount: float) =
+  canvas:
+    paint:
+      const SCALE = 15
+      var 
+        vg = self.window.vg
+        xpos = 25.0 + SCALE
+        ypos = self.h - SCALE * 3
+        i = 0
+        ysc = 0.0
+        maxyname = 0.0
+      for d in data:
+        if maxyname < parse_float(d[1]):
+          maxyname = parse_float(d[1])
+      var rycount = self.h / maxyname
+      echo rycount
+      for i in 0..ycount:
+        vg.draw_text($ysc, "bauhaus", blue(255), SCALE,  25, ypos)
+        ysc +=  maxyname / ycount
+        ypos -= SCALE + 15
+      for d in data:
+        if i == 0:
+          xpos += vg.text_width(data[0][1])
+        vg.draw_text(d[0], "bauhaus", blue(255), SCALE,  xpos, self.h - SCALE - 5)
+        
+        # Bars
+        var tw = vg.text_width(d[0])
+        vg.beginPath()
+        vg.rect(xpos - 5,  self.h - 25 - (ycount * parse_float(d[1])) , tw + 5, ycount * parse_float(d[1]))
+        vg.fillColor(red(255))
+        vg.fill()
+        
+        xpos += vg.text_width(d[0]) + 25
+        i.inc
+    inner
+
 test_my_way "ui":
   test "declarations":
-    box:
-      id box1
+    window:
+      id testapp
+      size 100, 100
       button:
         id btn
-        check parent.id == "box1"
+        check parent.id == "testapp"
         text:
           check parent.id == "btn"
       row:
-        check parent.id == "box1"
+        check parent.id == "testapp"
       column :
-        check parent.id == "box1"
+        check parent.id == "testapp"
       var tt = "f"
       textbox:
         id txtbx
         check self.id == "txtbx"
-        check parent.id == "box1"
+        check parent.id == "testapp"
       do: tt
-      check box1.children.len == 4
+      do: "sdf"
+      bargraph:
+        discard
+      check testapp.children.len == 5
+    testapp.show()

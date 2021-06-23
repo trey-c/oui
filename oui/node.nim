@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-import options, colors, unicode
+import options, colors, unicode, os
 import nanovg, private/gladgl, glfw
 import types, utils
 import testmyway
@@ -109,26 +109,25 @@ proc trigger_update_attributes*(node: UiNode) =
   
   when not defined release:
     if node.w <= 0:
-      ouiwarning node.name() & " width is " & $node.w
+      oui_warning node.name() & " width is " & $node.w
     if node.h <= 0:
-      ouiwarning node.name() & " height is " & $node.h
+      oui_warning node.name() & " height is " & $node.h
 
 proc axis_alignment(node: UiNode, inkw, inkh: float32): tuple[x, y: float32] =
-  const padding = 5
   case node.halign:
   of UiRight, UiTop:
-    result.x = node.w - inkw - padding
+    result.x = node.w - inkw
   of UiCenter:
     result.x = node.w / 2 - inkw / 2
   of UiLeft, UiBottom:
-    result.x = padding
+    result.x = 0
   case node.valign:
   of UiTop, UiRight:
-    result.y = padding
+    result.y = 0
   of UiCenter:
     result.y = node.h / 2 - inkh / 2
   of UiBottom, UiLeft:
-    result.y = node.h - inkh - padding
+    result.y = node.h - inkh 
 
 proc force_children_to_redraw(node: UiNode) =
   for n in node.children:
@@ -150,17 +149,12 @@ proc draw_children(node: UiNode, vg: NVGContext) =
       child.window = node.window  # Delegates don't get a window when being created??
     vg.save()
     vg.translate(child.x, child.y)
-    vg.scissor(0, 0, child.w, child.h)
+    vg.intersect_scissor(0, 0, child.w, child.h)
     child.draw()
+    vg.reset_scissor()
     vg.restore()
 
 proc draw(node: UiNode) =
-  # echo node.name() & $node.visible
-  if (node.w == node.oldw and node.h == node.oldh) and node.force_redraw == false:
-    ouidebug "shoud be speed drawing " & node.name()
-  else:
-    ouidebug "slow drawing " & $node.name(true)
-
   node.oldw = node.w
   node.oldh = node.h
   var vg = node.window.vg
@@ -192,7 +186,7 @@ proc draw(node: UiNode) =
 
     of UiText:
       var pos = node.axis_alignment(vg.textWidth(node.str), node.size)
-      vg.draw_text(node.str, node.face, node.color, node.size, pos.x, pos.y)
+      vg.draw_text(node.str, node.face, node.color, node.size, 0, 0)
     of UiCanvas:
         vg.save()
         for p in node.paint:
@@ -235,8 +229,6 @@ proc request_focus*(node, target: UiNode) {.gcsafe.} =
   var e = UiEvent(kind: UiFocus, x: 0, y: 0)
   node.handle_event_offset(target, e)
 
-  ouidebug "focus given to " & target.name
-
 proc queue_redraw*(target: UiNode = nil, update: bool = true) =
   if update:
     target.trigger_update_attributes()
@@ -272,13 +264,20 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
         if ev.kind != UiEnter:
           var e = UiEvent(kind: UiEnter, x: ev.x, y: ev.y)
           window.handle_event_offset(n, e)
-      window.handle_event_offset(n, ev)
+        else:
+          window.handle_event_offset(n, ev)
+      else:
+        window.handle_event_offset(n, ev)
     else:
       if n.hovered:
         n.hovered = false
         if ev.kind != UiLeave:
           var e = UiEvent(kind: UiLeave, x: ev.x, y: ev.y)
           window.handle_event_offset(n, e)
+        else:
+          window.handle_event_offset(n, ev)
+
+    
 
 proc draw_opengl*(window: UiNode) =
   assert window.kind == UiWindow
@@ -340,6 +339,11 @@ when glfw_supported():
       window.resizing = true
       window.resize(float size.w, float size.h)
       window.resizing = false
+
+    when defined windows:
+      # Allows the window to redraw while being resized
+      result.framebufferSizeCb = proc(w: Window, size: tuple[w, h: int32]) =
+        w.swapBuffers()
     
     result.mouseButtonCb = proc(w: Window, b: MouseButton, pressed: bool, mods: set[ModifierKey]) =
       if pressed:
@@ -428,13 +432,11 @@ proc init*(T: type UiNode, k: UiNodeKind): UiNode =
     when glfw_supported():
       result.handle = create_glfw_window(result)
     result.vg = nvgCreateContext({nifStencilStrokes})
-    var font = result.vg.createFont("sans", "Roboto-Regular.ttf")
-    if font == NoFont:
-      oui_error "Couldn't load font" 
-    discard addFallbackFont(result.vg, font, font)
+    # asdf
+    result.vg.load_font_by_name("bauhaus")
     windows.add result
   if result.kind == UiText:
-    result.face = "sans"
+    result.face = "bauhaus"
     result.size = 18
     result.color = rgb(35, 35, 35)
 

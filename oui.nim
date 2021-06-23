@@ -1,6 +1,8 @@
 import glfw, nanovg
 import oui/types, oui/node, oui/sugarsyntax, oui/ui, oui/utils
 export types, node, sugarsyntax, utils, ui
+import nimclipboard/libclipboard
+export libclipboard
 import testmyway
 
 proc no_windows_opened(): bool =

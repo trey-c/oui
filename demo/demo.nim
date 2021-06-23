@@ -15,85 +15,59 @@
 
 import oui
 import nanovg
-
-template items() =
-  ## Showcases both the textbox and list widgets
-
-  var itemstr = "I hate life"
-  textbox:
-    minw 200
-    minh 35
-    discard
-  do: itemstr
-  do: "Add Item"
-
-  var itemstr1 = "I hate life"
-  textbox:
-    update:
-      right parent.right
-      # padding_right 25
-      
-      padding_right 29
-    minw 200
-    minh 35
-  do: itemstr1
-  do: "Add Item"
-
-window:
-  id app
-  title "Demo"
-  w 600
-  h 400
-  scrollable:
-    update:
-      fill parent
-    items()
-    text:
-      id smexy
-      str "Ocicat Ui Framework"
-      update:
-        bottom parent.bottom
-        h 50
-        w parent.w
-        padding_bottom 25
-        halign UiCenter
-    box:
-      id pp
-      size 100, 100
-    button:
-      id crap
-      text:
-        str "Click me"
-        halign UiCenter
-        valign UiCenter
-      update:
-        size 100, 30
-        top pp.bottom
-        left pp.right
-    button:
-      text:
-        update:
-          fill parent
-        str "Click me"
-        halign UiCenter
-        valign UiCenter
-      update:
-        size 100, 50
-        top crap.bottom
-        left pp.right
-    box:
-      id tt
-      color 100, 100, 100
-      size 100, 50
-      update:
-        top pp.bottom
-    box:
-      id ttt
-      color 100, 0, 100
-      size 100, 100
-      update:
-        top tt.bottom
+import oui/table
  
+when is_main_module:
+  window:
+    id app
+    size 600, 400
+    var data = @[
+      ("Canada", "55"), 
+      ("U.S", "104"),
+      ("Russia", "35"),
+      ("China", "65"),
+      ("U.K", "51"),
+      ("Mexico", "55"),
+    ]
+    bargraph:
+      update:
+        w app.w / 2
+        h app.h / 2
+    do: data
+    do: 8
 
-app.show()
-oui_main()
+    bargraph:
+      update:
+        w app.w / 2
+        h app.h / 2
+        right parent.right
+    do: data
+    do: 8
+
+    bargraph:
+      update:
+        w app.w / 2
+        h app.h / 2
+        bottom parent.bottom
+    do: data
+    do: 8
+
+    bargraph:
+      update:
+        w app.w / 2
+        h app.h / 2
+        bottom parent.bottom
+        right parent.right
+    do: data
+    do: 8
+
+    button:
+      size 200, 30
+      update:
+        center parent
+      text:
+        str "Press if u hate graphs"
+        update:
+          center parent
+  app.show()
+  oui_main()
