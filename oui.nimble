@@ -15,7 +15,7 @@ requires "nimclipboard"
 import os, strutils
 
 before install:
-  exec "cp -r ./.oui " & get_home_dir()
+  exec "cp -r .oui " & get_home_dir()
 
 after install:
   echo "Ocicat Ui Framework (oui)"
