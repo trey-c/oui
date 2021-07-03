@@ -19,6 +19,7 @@ import nanovg
 import private/gladgl
 import types, utils
 import testmyway
+import table
 
 when glfw_supported():
   import glfw
@@ -525,6 +526,13 @@ proc set_table*(node: UiNode, table: UiTable) =
     ouidebug "table row added at index " & $index
   node.table.table_removed = proc(index: int) =
     ouidebug "table row removed at index " & $index
+  node.shown.add(proc(s, p: UiNode) =
+    for idx in s.table.loop():
+      s.add_delegate(idx)
+  )
+  node.hidden.add(proc(s, p: UiNode) =
+    s.children.set_len 0
+  )
 
 when glfw_supported():
   proc no_windows_opened(): bool =
