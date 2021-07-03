@@ -22,6 +22,7 @@ import types, node, sugarsyntax
 import testmyway
 import times
 import tables
+import math
 
 template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
   var tmp = 0.0
@@ -247,7 +248,6 @@ template bargraph*(inner: untyped, data: var seq[tuple[xname: string,
         if maxyname < parse_float(d[1]):
           maxyname = parse_float(d[1])
       var rycount = self.h / maxyname
-      echo rycount
       for i in 0..ycount:
         vg.draw_text($ysc, "bauhaus", blue(255), SCALE, 25, ypos)
         ysc += maxyname / ycount
@@ -268,6 +268,47 @@ template bargraph*(inner: untyped, data: var seq[tuple[xname: string,
         xpos += vg.text_width(d[0]) + 25
         i.inc
     inner
+
+template linegraph*(inner: untyped, data: var seq[tuple[name: string,
+    specific: string]], ycount: float) =
+  canvas:
+    paint:
+      const SCALE = 15
+      var
+        vg = self.window.vg
+        xpos = 25.0 + SCALE
+        ypos = self.h - SCALE * 3
+        i = 0
+        ysc = 0.0
+        maxyname = 0.0
+        total = 0.0
+        dpoint = 0.0
+      for d in data:
+        total += parse_float(d[1])
+        if maxyname < parse_float(d[1]):
+          maxyname = parse_float(d[1])
+      var rycount = self.h / maxyname
+      for i in 0..ycount:
+        ysc = round(ysc)
+        vg.draw_text($ysc, "bauhaus", blue(255), SCALE, 25, ypos)
+        ysc += maxyname / ycount
+        ypos -= SCALE + 15
+      for d in data:
+        if i == 0:
+          xpos += vg.text_width(data[0][1])
+        vg.draw_text(d[0], "bauhaus", blue(255), SCALE, xpos, self.h - SCALE - 5)
+        # Data Points
+        var tw = vg.text_width(d[0])
+        vg.beginPath()
+        vg.circle(xpos - 5, total - parse_float(d[1]), 4)
+        vg.fillColor(red(255))
+        vg.fill()
+        if i < (ycount - 1):
+          #dpoint is a variable name for "data point"
+          dpoint = total - parse_float(d[1])
+          vg.beginPath()
+          vg.moveTo(xpos - 5, dpoint)
+          vg.strokeColor(rgb(0, 160, 192))
 
 template calendar_button(label: string) =
   button:
@@ -308,9 +349,6 @@ template calendar*(inner: untyped, year, month: int) =
             for d in v:
               calendar_button($d)
     inner
-
-
-  # inner
 
 test_my_way "ui":
   test "calendar":

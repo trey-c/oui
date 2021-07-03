@@ -424,7 +424,6 @@ proc ensure_minimum_size(node: UiNode) =
             if txtw > s.minw:
               s.minw = txtw
             s.minh += lineh
-
     if s.w < s.minw and s.minw > 0:
       s.w = s.minw
     if s.h < s.minh and s.minh > 0:
