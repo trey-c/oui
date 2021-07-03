@@ -36,14 +36,14 @@ proc `$`*(table: UiTable): string =
   $table.list
 
 proc at*(table: UiTable, index, flag: int): string =
-    if index <= table.count and index != -1:
-      table[index][flag]      
-    else:
-      if index != -1:
-        oui_warning "UiTable at index " & $index & " is out of range"
-      $index & " unkown"
+  if index <= table.count and index != -1:
+    table[index][flag]
+  else:
+    if index != -1:
+      oui_warning "UiTable at index " & $index & " is out of range"
+    $index & " unkown"
 
-proc clear*(table: UiTable) = 
+proc clear*(table: UiTable) =
   table.list.set_len(0)
   table.count = 0
 
@@ -54,12 +54,13 @@ iterator loop*(table: UiTable): int =
     i.inc
 
 macro declare_table_flags(name: untyped, args: varargs[string]) =
-  var 
+  var
     i = 0
     table_enum = nnkEnumTy.newTree(newEmptyNode())
   for arg in args:
     table_enum.add(
-      nnkEnumFieldDef.newTree(newIdentNode(name.str_val() & arg.str_val().capitalize_ascii()), newLit(i))
+      nnkEnumFieldDef.newTree(newIdentNode(name.str_val() & arg.str_val(
+      ).capitalize_ascii()), newLit(i))
     )
     i.inc
   result = nnkTypeSection.newTree(
@@ -71,7 +72,7 @@ macro declare_table_flags(name: untyped, args: varargs[string]) =
   )
 
 macro declare_table_add(name: untyped, args: varargs[string]) =
-  var 
+  var
     add = ident("add" & name.str_val)
     add_params_defs = nnkIdentDefs.newTree()
     add_stmt = new_stmt_list()
@@ -82,7 +83,7 @@ macro declare_table_add(name: untyped, args: varargs[string]) =
   add_params_defs.add ident("string")
   add_params_defs.add new_empty_node()
 
-  var add_params = 
+  var add_params =
     nnkFormalParams.newTree(
       newEmptyNode(),
       nnkIdentDefs.newTree(
@@ -99,8 +100,8 @@ macro declare_table_add(name: untyped, args: varargs[string]) =
         nnkDotExpr.newTree(
           newIdentNode(name.str_val() & arg.str_val()),
           newIdentNode("ord")
-        )
-      ),
+      )
+    ),
       newIdentNode(arg.str_val())
     )
   result = nnkProcDef.newTree(

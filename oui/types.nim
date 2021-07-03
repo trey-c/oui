@@ -27,11 +27,14 @@ proc glfw_supported*(): bool =
 when glfw_supported():
   import glfw
 
+when defined android:
+  import glfm
+
 type
   UiEventKind* = enum
     UiMousePress, UiMouseRelease, UiKeyPress, UiKeyRelease, 
     UiMouseMotion, UiExpose, UiResize, UiEnter, UiLeave,
-    UiFocus, UiUnfocus
+    UiFocus, UiUnfocus, UiEventTouch
 
   UiEvent* = object
     case kind*: UiEventKind
@@ -41,6 +44,9 @@ type
       ch*: string
     of UiMousePress, UiMouseRelease:
         button*: MouseButton
+    of UiEventTouch:
+      when defined android:
+        phase*: GLFMTouchPhase
     else:
       discard
     x*, y*: float

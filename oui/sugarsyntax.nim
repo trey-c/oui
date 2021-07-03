@@ -15,15 +15,17 @@
 
 import macros, strutils, glfw
 from colors import parse_color, extract_rgb
-import nanovg except text 
+import nanovg except text
 import types, node, utils
 import testmyway
 
 var
   parents* {.compileTime.}: seq[NimNode] = @[]
+  tmpparents* {.compileTime.}: seq[NimNode] = @[]
 
 macro node_next_parent(node: UiNode, delegate: bool = false) =
-  var current_parent = if parents.len > 0: parents[parents.high] else: new_nil_lit()
+  var current_parent = if parents.len > 0: parents[
+      parents.high] else: new_nil_lit()
   if current_parent.kind != nnkNilLit and delegate.bool_val == false:
     result = quote do:
       parent.add(`node`)
@@ -33,7 +35,7 @@ template node*(kind: UiNodeKind, inner: untyped,
     delegate: bool = false) =
   var node = UiNode.init(kind)
   parent = self
-  self  = node
+  self = node
   node_next_parent(node, delegate)
   inner
   static:
@@ -45,7 +47,7 @@ macro decl_style*(name, inner: untyped) =
   assert inner.kind == nnkStmtList
   for call in inner:
     assert call.kind == nnkCall
-    styles.add((name: call[0].str_val, color: call[1][0].repr))  
+    styles.add((name: call[0].str_val, color: call[1][0].repr))
   var
     type_name = name.str_val
     type_str = ""
@@ -62,7 +64,8 @@ macro decl_style*(name, inner: untyped) =
 type
   $1* = tuple[$2: Color]
 var $3* = ($4)
-  """ % [type_name.capitalize_ascii.str_to_camel_case & "Style", type_str, type_name & "_style", var_str])
+  """ % [type_name.capitalize_ascii.str_to_camel_case & "Style", type_str,
+      type_name & "_style", var_str])
 
 template decl_ui_node(name: untyped, kind: UiNodeKind) =
   template name*(inner: untyped) =
@@ -104,9 +107,11 @@ template delegate*(inner: untyped) =
       table {.inject.} = tmptable
       index {.inject.} = tmpindex
     static:
+      tmpparents = parents
       parents.set_len 0
-
     inner
+    static:
+      parents = tmpparents
 
 template paint*(inner: untyped) =
   self.paint.add proc(s, p: Uinode, ctx: NVGContext) {.closure.} =
@@ -143,7 +148,7 @@ template padding_left*(l: float32) =
   self.padding_left = l
 
 template padding_bottom*(b: float32) =
- self.padding_bottom = b
+  self.padding_bottom = b
 
 template padding_right*(r: float32) =
   self.padding_right = r
@@ -367,7 +372,7 @@ test_my_way "sugarsyntax":
         box:
           box:
             discard
-          box: 
+          box:
             discard
           check self.children.len == 2
 
@@ -386,7 +391,7 @@ test_my_way "sugarsyntax":
       size self.w * 2, self.h * 2
       check self.w == 20
       check self.h == 20
-      
+
       top self.top
       left self.left
       bottom self.bottom
@@ -394,9 +399,9 @@ test_my_way "sugarsyntax":
       padding 10, 0, 10, 0
       padding_left 10
       padding_right 10
-      padding_top 10     
+      padding_top 10
       padding_bottom 10
-      
+
       color 255, 255, 255
       color self.color
       border_color 255, 255, 255
@@ -438,7 +443,7 @@ test_my_way "sugarsyntax":
           w 20
       box:
         discard
-      
+
       check self.id == "testlayout"
 
       self.trigger_update_attributes()
@@ -446,7 +451,7 @@ test_my_way "sugarsyntax":
       check self.children[0].id == "testbox"
       check self.children[0].w == 20
       check self.children[0].h == 20
-  
+
   # test "delegate":
   #   layout:
   #     id testlayout
@@ -462,7 +467,7 @@ test_my_way "sugarsyntax":
   #     check testlayout.children[0].index == 0
   #     check testlayout.children[1].index == 1
   #     check testlayout.children[2].index == 2
-  
+
   test "min sizes":
     box:
       id testbox

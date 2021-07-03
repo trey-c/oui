@@ -46,7 +46,6 @@ window:
       fill parent
       w parent.w / 2
 app.show()
-oui_main()
 ```
 
 Check out the [demo](/demo) application for a more realistic example. Or read the [manual](doc/MANUAL.md) for an explanation of whats above
@@ -83,9 +82,18 @@ Install a package like `glfw` or `glfw-x11` or `glfw-wayland` from your distro's
 
 https://www.msys2.org or any other method for installing mingw64 packages
 
+Avoid installing glfw or nanovg because the nim bindings use their c source files for static compilation.
+
 ```shell
-> pacman -S --needed base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-nim mingw-w64-x86_64-nimble mingw-w64-x86_64-nimble mingw-w64-x86_64-glfw
+> pacman -S --needed base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-nim mingw-w64-x86_64-nimble mingw-w64-x86_64-nimble
 ```
+
+#### Android
+
+> Android studio is **not** required
+
+Run the gui `deploymobile` and connect an Android device to your computer.
+
 #### oui
 
 ```shell

@@ -32,7 +32,7 @@ proc draw_rounded_rectangle*(vg: NVGContext, color: Color, opacity, x, y, w,
   vg.roundedRect(x, y, w, h, rad)
   vg.fillColor(color)
   vg.fill()
-  
+
   if border_width < 0:
     return
   vg.beginPath()
@@ -78,7 +78,9 @@ proc load_font_by_name*(vg: NVGContext, name: string) =
   ## Loads from oui's default font location
   when defined windows:
     var loc = get_home_dir() & ".oui\\fonts\\" & name & ".ttf"
+  when not defined windows:
+    var loc = get_home_dir() & ".oui/fonts/" & name & ".ttf"
   var font = vg.createFont(name, loc)
   if font == NoFont:
-    oui_error "Couldn't load font: " & loc 
+    oui_error "Couldn't load font: " & loc
   discard addFallbackFont(vg, font, font)

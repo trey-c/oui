@@ -10,7 +10,8 @@ requires "https://github.com/trey-c/testmyway.git"
 # thanks https://github.com/johnnovak/nim-nanovg/issues/2#issuecomment-813278849
 requires "https://github.com/johnnovak/nim-nanovg#099121232829722752d33e0472a11201195feb55"
 requires "glfw"
-requires "nimclipboard"
+when not defined android:
+  requires "nimclipboard"
 
 import os, strutils
 

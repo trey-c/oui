@@ -13,32 +13,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import nimclipboard/libclipboard
+when not defined android:
+  import nimclipboard/libclipboard
 import macros, strutils, glfw
 import nanovg except text
 export strutils
 import types, node, sugarsyntax
 import testmyway
+import times
+import tables
 
 template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
   var tmp = 0.0
-  for child in node.children:
+  for child in node:
     child.`axis` = tmp
     tmp = tmp + child.`size` + node.spacing
 
 template stack_switch*(node, target: UiNode, animate: untyped) =
   node.trigger_update_attributes()
-  for n in node.children:
+  for n in node:
     if n.visible:
       n.hide()
-  for n in node.children:
+  for n in node:
     if n == target:
       n.show()
       animate
       break
   node.queue_redraw()
 
-decl_style button: 
+decl_style button:
   normal: rgb(241, 241, 241)
   hover: rgb(200, 200, 200)
   active: rgb(100, 100, 100)
@@ -64,7 +67,8 @@ template button*(inner: untyped, style: ButtonStyle = button_style) =
       self.queue_redraw()
     inner
 
-proc text_box_key_press*(text: var string, event: var UiEvent, password, focused: bool, caretIndex: var int) =
+proc text_box_key_press*(text: var string, event: var UiEvent, password,
+    focused: bool, caretIndex: var int) =
   case event.key:
   of keyLeft:
     caretIndex -= 1
@@ -82,15 +86,16 @@ proc text_box_key_press*(text: var string, event: var UiEvent, password, focused
     else:
       text.insert(event.ch.to_lower(), text.len())
 
-decl_style textbox: 
+decl_style textbox:
   normal: rgb(241, 241, 241)
   border_focus: rgb(41, 41, 41)
   border_normal: rgb(210, 210, 210)
   txt: rgb(100, 100, 100)
   txt_focus: rgb(35, 35, 35)
 
-template textbox*(inner: untyped, textstr: var string, label: string, password: bool = false, style: TextboxStyle = textbox_style) =
-  var 
+template textbox*(inner: untyped, textstr: var string, label: string,
+    password: bool = false, style: TextboxStyle = textbox_style) =
+  var
     caretX = 0.0
     caretIndex = 0
     glyphs: array[100, GlyphPosition]
@@ -135,11 +140,11 @@ template textbox*(inner: untyped, textstr: var string, label: string, password: 
         return
       text_box_key_press(textstr, event, password, self.has_focus, caretIndex)
       self.queue_redraw()
-
-      if event.key == keyRightAlt:
-        var cb = clipboard_new(nil)
-        textstr.add cb.clipboard_text()
-        cb.clipboard_free()
+      when not defined android:
+        if event.key == keyRightAlt:
+          var cb = clipboard_new(nil)
+          textstr.add cb.clipboard_text()
+          cb.clipboard_free()
     draw_post:
       var vg = self.window.vg
       vg.beginPath()
@@ -163,27 +168,27 @@ template combobox*(inner: untyped) =
       up.move_window(ev.xroot, ev.yroot)
     inner
 
-template row*(inner: untyped) = 
+template row*(inner: untyped) =
   layout:
     arrange_layout:
       arrange_row_or_column(y, h, self)
     inner
 
-template column*(inner: untyped) = 
+template column*(inner: untyped) =
   layout:
     arrange_layout:
       arrange_row_or_column(x, w, self)
     inner
 
 template scrollable*(inner: untyped) =
-  var 
-    swiping = false 
+  var
+    swiping = false
     yoffset = 1.0
     mousey = 0.0
   layout:
     arrange_layout:
-      for child in self.children:
-        child.y = float32 yoffset
+      for child in self:
+        child.y = float32 yoffset + child.y
     mouse_leave:
       swiping = false
     mouse_press:
@@ -210,27 +215,28 @@ template list*(inner: untyped) =
       arrange_row_or_column(y, h, self)
     inner
 
-template popup*(inner: untyped) = 
+template popup*(inner: untyped) =
   window:
     self.is_popup = true
-    mouse_leave:
+    unfocus:
       self.hide()
     inner
 
 template stack*(inner: untyped) =
   layout:
     arrange_layout:
-      for node in self.children:
+      for node in self:
         if node.visible != true:
           continue
         node.fill self
     inner
 
-template bargraph*(inner: untyped, data: var seq[tuple[xname: string, yname: string]], ycount: float) =
+template bargraph*(inner: untyped, data: var seq[tuple[xname: string,
+    yname: string]], ycount: float) =
   canvas:
     paint:
       const SCALE = 15
-      var 
+      var
         vg = self.window.vg
         xpos = 25.0 + SCALE
         ypos = self.h - SCALE * 3
@@ -243,47 +249,110 @@ template bargraph*(inner: untyped, data: var seq[tuple[xname: string, yname: str
       var rycount = self.h / maxyname
       echo rycount
       for i in 0..ycount:
-        vg.draw_text($ysc, "bauhaus", blue(255), SCALE,  25, ypos)
-        ysc +=  maxyname / ycount
+        vg.draw_text($ysc, "bauhaus", blue(255), SCALE, 25, ypos)
+        ysc += maxyname / ycount
         ypos -= SCALE + 15
       for d in data:
         if i == 0:
           xpos += vg.text_width(data[0][1])
-        vg.draw_text(d[0], "bauhaus", blue(255), SCALE,  xpos, self.h - SCALE - 5)
-        
+        vg.draw_text(d[0], "bauhaus", blue(255), SCALE, xpos, self.h - SCALE - 5)
+
         # Bars
         var tw = vg.text_width(d[0])
         vg.beginPath()
-        vg.rect(xpos - 5,  self.h - 25 - (ycount * parse_float(d[1])) , tw + 5, ycount * parse_float(d[1]))
+        vg.rect(xpos - 5, self.h - 25 - (ycount * parse_float(d[1])), tw + 5,
+            ycount * parse_float(d[1]))
         vg.fillColor(red(255))
         vg.fill()
-        
+
         xpos += vg.text_width(d[0]) + 25
         i.inc
     inner
 
+template calendar_button(label: string) =
+  button:
+    text:
+      str label
+      update:
+        center parent
+    update:
+      size 50, self[0].minh * 2
+
+
+template calendar*(inner: untyped, year, month: int) =
+  var cal = initOrderedTable[string, seq[int]]()
+  for week in WeekDay:
+    let wk = ($week)[0..2]
+    cal[wk] = @[]
+    for day in 1..get_days_in_month(Month(month), year):
+      if get_day_of_week(day, Month(month), year) == week:
+        cal[wk].add day
+
+  row:
+    text:
+      str $Month(month) & " - Year " & $year
+    column:
+      update:
+        h parent.h - parent[0].h * 2
+        w parent.w
+      for k, v in cal.pairs:
+        column:
+          w 50
+          update:
+            h parent.h
+          row:
+            w 100
+            update:
+              h parent.h
+            calendar_button(k)
+            for d in v:
+              calendar_button($d)
+    inner
+
+
+  # inner
+
 test_my_way "ui":
-  test "declarations":
-    window:
-      id testapp
-      size 100, 100
-      button:
-        id btn
-        check parent.id == "testapp"
-        text:
-          check parent.id == "btn"
-      row:
-        check parent.id == "testapp"
-      column :
-        check parent.id == "testapp"
-      var tt = "f"
-      textbox:
-        id txtbx
-        check self.id == "txtbx"
-        check parent.id == "testapp"
-      do: tt
-      do: "sdf"
-      bargraph:
-        discard
-      check testapp.children.len == 5
-    testapp.show()
+  test "calendar":
+    row:
+      size 1000, 1000
+      calendar:
+        w parent.w
+        h 250
+      do: 2021
+      do: 3
+      calendar:
+        w parent.w
+        h 250
+      do: 2022
+      do: 8
+      calendar:
+        w parent.w
+        h 250
+      do: 1000
+      do: 9
+      self.show()
+  # test "declarations":
+  #   window:
+  #     id testapp
+  #     size 100, 100
+  #     button:
+  #       id btn
+  #       check parent.id == "testapp"
+  #       text:
+  #         check parent.id == "btn"
+  #     row:
+  #       check parent.id == "testapp"
+  #     column:
+  #       check parent.id == "testapp"
+  #     var tt = "f"
+  #     textbox:
+  #       id txtbx
+  #       check self.id == "txtbx"
+  #       check parent.id == "testapp"
+  #     do: tt
+  #     do: "sdf"
+  #     bargraph:
+  #       discard
+  #     check testapp.children.len == 5
+  #   testapp.show()

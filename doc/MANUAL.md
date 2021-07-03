@@ -29,7 +29,6 @@
 ## Fundamentals
 
 All **`UiNode's** use the following templates
-
 - `w` | `h` |  `size`
 - `top` | `left` | `bottom` | `right`
 - `padding_top` | `padding_left` | `padding_bottom` | `padding_right`
@@ -402,7 +401,7 @@ opengl:
 ```nim
 layout:
   arrange_layout:
-    for child in node.children:
+    for child in node:
       child.y = 100
 ```
 
