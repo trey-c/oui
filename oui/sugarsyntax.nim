@@ -167,14 +167,15 @@ template padding*(top, left, bottom, right: float32) =
 template border_width*(t: float32) =
   self.border_width = t
 
-template border_width*(t: float32) =
-  self.border_width = t
-
 template border_color*(c: Color) =
   self.border_color = c
 
 template border_color*(r, g, b: int = 255) =
   self.border_color = rgb(r, g, b)
+
+template border_color*(c: string) =
+  var nimcolor = extract_rgb(parse_color(c))
+  color(nimcolor.r, nimcolor.g, nimcolor.b)
 
 template color*(c: Color) =
   self.gradient.active = false
@@ -437,9 +438,10 @@ test_my_way "sugarsyntax":
 
       color 255, 255, 255
       color self.color
+      color "#ffffff"
       border_color 255, 255, 255
       border_color self.border_color
-      color "#ffffff"
+      border_color "#333333"
       opacity 0.5
       radius 5
       minw 1
@@ -467,9 +469,9 @@ test_my_way "sugarsyntax":
       arrange_layout:
         check self.id == "testlayout"
         check self.children.len == 2
-        check self.children[0].id == "testbox"
-        self.children[0].w = 40
-        self.children[0].h = 20
+        check self[0].id == "testbox"
+        self[0].w = 40
+        self[0].h = 20
       box:
         id testbox
         update:
@@ -481,25 +483,27 @@ test_my_way "sugarsyntax":
 
       self.trigger_update_attributes()
       check self.children.len == 2
-      check self.children[0].id == "testbox"
-      check self.children[0].w == 20
-      check self.children[0].h == 20
+      check self[0].id == "testbox"
+      check self[0].w == 20
+      check self[0].h == 20
 
-  # test "delegate":
-  #   layout:
-  #     id testlayout
-  #     delegate box, UiBox:
-  #       color 234, 234, 23
-  #     check testlayout.children.len == 0
-  #     testlayout.add_delegate(0)
-  #     check testlayout.children.len == 1
-  #     testlayout.add_delegate(1)
-  #     testlayout.add_delegate(2)
-  #     check testlayout.children.len == 3
+  test "delegate":
+    layout:
+      id testlayout
+      delegate:
+        box:
+          result = self
+          color 234, 234, 23
+      check testlayout.children.len == 0
+      testlayout.add_delegate(0)
+      check testlayout.children.len == 1
+      testlayout.add_delegate(1)
+      testlayout.add_delegate(2)
+      check testlayout.children.len == 3
 
-  #     check testlayout.children[0].index == 0
-  #     check testlayout.children[1].index == 1
-  #     check testlayout.children[2].index == 2
+      check testlayout[0].index == 0
+      check testlayout[1].index == 1
+      check testlayout[2].index == 2
 
   test "min sizes":
     box:

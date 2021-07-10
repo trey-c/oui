@@ -120,9 +120,9 @@ template textbox*(inner: untyped, textstr: var string, label: string,
           padding_top 3
         else:
           center parent
-          size 15
+          size 14
     text:
-      size 15
+      size 14
       update:
         bottom parent.bottom
         left parent.left
@@ -325,25 +325,40 @@ template calendar_button(inner: untyped, label: string) =
   button:
     text:
       str label
+      size 11
       update:
         center parent
     update:
       size 50, self[0].minh * 2
     inner
 
+proc add_days_for_week_day(cal: var OrderedTable[string, seq[int]],
+    week: WeekDay, month: int, year: int) =
+  let wk = ($week)[0..2]
+  cal[wk] = @[]
+  for day in 1..get_days_in_month(Month(month), year):
+    if get_day_of_week(day, Month(month), year) == week:
+      cal[wk].add day
 
 template calendar*(inner: untyped, year, month: int, cb: proc(day, month, year: int)) =
   var cal = initOrderedTable[string, seq[int]]()
+  var
+    first = get_day_of_week(1, Month(month), year)
+    first_yet = false
+    offsetdays: seq[WeekDay]
   for week in WeekDay:
-    let wk = ($week)[0..2]
-    cal[wk] = @[]
-    for day in 1..get_days_in_month(Month(month), year):
-      if get_day_of_week(day, Month(month), year) == week:
-        cal[wk].add day
-
+    if first == week:
+      first_yet = true
+    if first_yet == false:
+      offsetdays.add(week)
+      continue
+    add_days_for_week_day(cal, week, month, year)
+  for weekday in offsetdays:
+    add_days_for_week_day(cal, weekday, month, year)
   row:
     text:
       str $Month(month) & " - Year " & $year
+      size 11
     column:
       update:
         h parent.h - parent[0].h * 2
@@ -369,24 +384,13 @@ template calendar*(inner: untyped, year, month: int, cb: proc(day, month, year: 
 
 test_my_way "ui":
   test "calendar":
-    row:
-      size 1000, 1000
-      calendar:
-        w parent.w
-        h 250
-      do: 2021
-      do: 3
-      calendar:
-        w parent.w
-        h 250
-      do: 2022
-      do: 8
-      calendar:
-        w parent.w
-        h 250
-      do: 1000
-      do: 9
+    calendar:
+      update:
+        size 1000, 1000
       self.show()
+    do: 2011
+    do: 4
+    do: (proc(day, month, year: int) = discard)
   # test "declarations":
   #   window:
   #     id testapp

@@ -445,6 +445,14 @@ when glfw_supported():
             y: window.cursor_pos.y)
         window.handle_event(window, e)
 
+    result.window_focus_cb = proc(w: Window, focused: bool) =
+      if focused:
+        var e = UiEvent(kind: UiFocus, x: 0, y: 0)
+        window.handle_event(window, e)
+      else:
+        var e = UiEvent(kind: UiUnfocus, x: 0, y: 0)
+        window.handle_event(window, e)
+
     result.charCb = proc(w: Window, codePoint: Rune) =
       var e = UiEvent(kind: UiKeyPress, key: keyUnknown, mods: {},
           ch: codePoint.toUTF8(),
@@ -472,10 +480,10 @@ proc ensure_minimum_size(node: UiNode) {.exportc.} =
           for str in s.str.split_lines():
             var
               (a, b, lineh) = s.window.vg.textMetrics()
-              txtw = s.window.vg.text_width(str)
+              txtw = s.window.vg.text_width(str) + s.size
             if txtw > s.minw:
               s.minw = txtw
-            s.minh += lineh
+            s.minh += lineh + s.size
     if s.w < s.minw and s.minw > 0:
       s.w = s.minw
     if s.h < s.minh and s.minh > 0:
@@ -523,7 +531,7 @@ proc init*(T: type UiNode, k: UiNodeKind): UiNode =
 
   if result.kind == UiText:
     result.face = "bauhaus"
-    result.size = 30
+    result.size = 14
     result.color = rgb(35, 35, 35)
 
 
@@ -587,10 +595,10 @@ proc show*(node: UiNode) {.exportc.} =
       node.update_attributes.add proc(s, p: UiNode) = s.fill p
       node.window.show()
       return
-  node.visible = true
-  for child in node:
-    if child.visible == true:
+  if node.visible == false:
+    for child in node:
       child.show()
+  node.visible = true
   for s in node.shown:
     s(node, node.parent)
   when glfw_supported():
