@@ -172,7 +172,7 @@ template border_color*(c: Color) =
 
 template border_color*(c: string) =
   var nimcolor = extract_rgb(parse_color(c))
-  border_color(color(nimcolor.r, nimcolor.g, nimcolor.b))
+  border_color(rgb(nimcolor.r, nimcolor.g, nimcolor.b))
 
 template color*(c: Color) =
   self.gradient.active = false
@@ -181,7 +181,7 @@ template color*(c: Color) =
 template color*(c: string) =
   self.gradient.active = false
   var nimcolor = extract_rgb(parse_color(c))
-  color(nimcolor.r, nimcolor.g, nimcolor.b)
+  color(rgb(nimcolor.r, nimcolor.g, nimcolor.b))
 
 template opacity*(o: range[0f..1f]) =
   self.opacity = o
