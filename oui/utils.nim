@@ -16,6 +16,13 @@
 import strutils, terminal, os
 export terminal
 import nanovg
+when defined android:
+  import glfm/glfm
+  import android/extras/pathutils
+  import android/content/res/asset_manager
+  import android/content/context
+  import android/ndk/aasset_manager
+  import jnim
 
 proc draw_text*(vg: NVGContext, text, face: string, color: Color, size,
     x, y: float32) =
@@ -63,8 +70,9 @@ proc str_to_camel_case*(
       result.add(c)
 
 template oui_debug*[T](t: T) =
-  ## Wraps `styled_echo`
-  styled_echo fgGreen, "oui_debug  ", resetStyle, t
+  ## Wraps `styled_echo` when -d:release isnt defined
+  when defined releease:
+    styled_echo fgGreen, "oui_debug  ", resetStyle, t
 
 template oui_warning*[T](t: T) =
   ## Wraps `styled_echo`
@@ -74,13 +82,32 @@ template oui_error*[T](t: T) =
   ## Wraps `styled_echo` with an error prefix
   styled_echo fgRed, "oui_error ", resetStyle, t
 
-proc load_font_by_name*(vg: NVGContext, name: string) =
-  ## Loads from oui's default font location
+
+template oui_log*[T](t: T) =
+  ## Wraps `styled_echo` with a log prefix.
+  styled_echo fgMagenta, "oui_log ", resetStyle, t
+
+proc load_font_by_name*(vg: NVGContext, name: string) {.exportc.} =
+  ## Loads from oui's default font locatio
   when defined windows:
     var loc = get_home_dir() & ".oui\\fonts\\" & name & ".ttf"
-  when not defined windows:
+  when defined android:
+    var loc = "font/" & name & ".ttf"
+    var fileasset = open(glfmAndroidGetActivity().asset_manager, "font/" &
+        name & ".ttf", AASSET_MODE_BUFFER)
+    try:
+      var buf = cast[ptr UncheckedArray[byte]](fileasset.getBuffer())
+      var font = vg.createFontMem(name, toOpenArray[byte](buf, 0,
+          fileasset.getLength()))
+      discard addFallbackFont(vg, font, font)
+    except:
+      echo "Couldn't load font: @" & loc
+  elif defined linux:
     var loc = get_home_dir() & ".oui/fonts/" & name & ".ttf"
-  var font = vg.createFont(name, loc)
-  if font == NoFont:
-    oui_error "Couldn't load font: " & loc
-  discard addFallbackFont(vg, font, font)
+
+    echo "loading"
+    try:
+      var font = vg.createFont(name, loc)
+      discard addFallbackFont(vg, font, font)
+    except:
+      echo "Couldn't load font: @" & loc

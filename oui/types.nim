@@ -16,8 +16,16 @@
 import tables
 import nanovg
 
+proc glfm_supported*(): bool =
+  if defined android:
+    true
+  else:
+    false
+
 proc glfw_supported*(): bool =
-  if defined(windows):
+  if glfm_supported():
+    false
+  elif defined(windows):
     true
   elif defined(linux):
     true
@@ -27,30 +35,33 @@ proc glfw_supported*(): bool =
 when glfw_supported():
   import glfw
 
-when defined android:
-  import glfm
+when glfm_supported():
+  import glfm/glfm
 
 type
   UiEventKind* = enum
-    UiMousePress, UiMouseRelease, UiKeyPress, UiKeyRelease, 
+    UiMousePress, UiMouseRelease, UiKeyPress, UiKeyRelease,
     UiMouseMotion, UiExpose, UiResize, UiEnter, UiLeave,
-    UiFocus, UiUnfocus, UiEventTouch
+    UiFocus, UiUnfocus, UiTouch
 
   UiEvent* = object
     case kind*: UiEventKind
     of UiKeyPress, UiKeyRelease:
-      key*: Key
-      mods*: set[ModifierKey]
+      when glfw_supported():
+        key*: Key
+        mods*: set[ModifierKey]
       ch*: string
-    of UiMousePress, UiMouseRelease:
-        button*: MouseButton
-    of UiEventTouch:
-      when defined android:
+    of UiTouch:
+      when glfm_supported():
         phase*: GLFMTouchPhase
+    of UiMousePress, UiMouseRelease:
+      when glfw_supported():
+        button*: MouseButton
+      discard
     else:
       discard
     x*, y*: float
-    
+
   UiEventCallback* = proc(ev: UiEvent) {.gcsafe.}
 
   UiTableRow* = OrderedTable[int, string]
@@ -111,7 +122,7 @@ type
       title*: string
       exposed*, is_popup*: bool
       focused_node*: UiNode
-      resizing*: bool
+      resizing*, resizable*: bool
       cursor_pos*: tuple[x, y: float]
       gl_nodes*: seq[UiNode]
     of UiBox:

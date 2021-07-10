@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-when not defined android:
-  import nimclipboard/libclipboard
 import macros, strutils, glfw
 import nanovg except text
 export strutils
@@ -31,7 +29,6 @@ template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
     tmp = tmp + child.`size` + node.spacing
 
 template stack_switch*(node, target: UiNode, animate: untyped) =
-  node.trigger_update_attributes()
   for n in node:
     if n.visible:
       n.hide()
@@ -60,32 +57,37 @@ template button*(inner: untyped, style: ButtonStyle = button_style) =
     mouse_leave:
       color style.normal
       self.queue_redraw()
-    mouse_press:
+    pressed:
       color style.active
       self.queue_redraw()
-    mouse_release:
-      color style.hover
+    released:
+      when glfw_supported():
+        color style.hover
+      when glfm_supported():
+        color style.normal
       self.queue_redraw()
     inner
 
 proc text_box_key_press*(text: var string, event: var UiEvent, password,
     focused: bool, caretIndex: var int) =
-  case event.key:
-  of keyLeft:
-    caretIndex -= 1
-  of keyRight:
-    caretIndex += 1
-  of keyBackspace:
-    if text.len() > 0:
-      text.delete(text.len() - 1, text.len())
+  when glfw_supported():
+    case event.key:
+    of keyLeft:
       caretIndex -= 1
+    of keyRight:
+      caretIndex += 1
+    of keyBackspace:
+      if text.len() > 0:
+        text.delete(text.len() - 1, text.len())
+        caretIndex -= 1
+      else:
+        text.set_len(0)
     else:
-      text.set_len(0)
-  else:
-    if event.mods.contains(mkShift) or event.mods.contains(mkCapsLock):
-      text.insert(event.ch.to_upper(), text.len())
-    else:
-      text.insert(event.ch.to_lower(), text.len())
+      if event.mods.contains(mkShift) or event.mods.contains(mkCapsLock):
+        text.insert(event.ch.to_upper(), text.len())
+      else:
+        text.insert(event.ch.to_lower(), text.len())
+    discard
 
 decl_style textbox:
   normal: rgb(241, 241, 241)
@@ -141,11 +143,6 @@ template textbox*(inner: untyped, textstr: var string, label: string,
         return
       text_box_key_press(textstr, event, password, self.has_focus, caretIndex)
       self.queue_redraw()
-      when not defined android:
-        if event.key == keyRightAlt:
-          var cb = clipboard_new(nil)
-          textstr.add cb.clipboard_text()
-          cb.clipboard_free()
     draw_post:
       var vg = self.window.vg
       vg.beginPath()
@@ -310,7 +307,7 @@ template linegraph*(inner: untyped, data: var seq[tuple[name: string,
           vg.moveTo(xpos - 5, dpoint)
           vg.strokeColor(rgb(0, 160, 192))
 
-template calendar_button(label: string) =
+template calendar_button(inner: untyped, label: string) =
   button:
     text:
       str label
@@ -318,9 +315,10 @@ template calendar_button(label: string) =
         center parent
     update:
       size 50, self[0].minh * 2
+    inner
 
 
-template calendar*(inner: untyped, year, month: int) =
+template calendar*(inner: untyped, year, month: int, cb: proc(day, month, year: int)) =
   var cal = initOrderedTable[string, seq[int]]()
   for week in WeekDay:
     let wk = ($week)[0..2]
@@ -345,9 +343,14 @@ template calendar*(inner: untyped, year, month: int) =
             w 100
             update:
               h parent.h
-            calendar_button(k)
+            calendar_button:
+              discard
+            do: k
             for d in v:
-              calendar_button($d)
+              calendar_button:
+                pressed:
+                  cb(parse_int(self[0].str), month, year)
+              do: $d
     inner
 
 test_my_way "ui":

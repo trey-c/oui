@@ -82,7 +82,7 @@ Install a package like `glfw` or `glfw-x11` or `glfw-wayland` from your distro's
 
 https://www.msys2.org or any other method for installing mingw64 packages
 
-Avoid installing glfw or nanovg because the nim bindings use their c source files for static compilation.
+Avoid installing glfw or nano because the nim bindings use their c source files for static compilation.
 
 ```shell
 > pacman -S --needed base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-nim mingw-w64-x86_64-nimble mingw-w64-x86_64-nimble

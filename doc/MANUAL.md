@@ -336,7 +336,7 @@ P.S if your curious, heres what `border_right` looks like in *oui/sugarsyntax.ni
 
 ```nim
 template border_right*(thickness: float32, inner: untyped) =
-  box borderright:
+  box:
     update:
       right parent.right
       size thickness, parent.h
@@ -356,7 +356,7 @@ face "sans"
 size 20
 ```
 
-And also align the text with `align UiLeft | UiRight | UiTop | UiBottom | UiCenter`
+And also align the text with `v/halign UiLeft | UiRight | UiTop | UiBottom | UiCenter`
 
 ```nim
 valign UiBottom
@@ -477,9 +477,6 @@ stack:
 You switch the displayed node by calling `stack_switch`
 
 ```nim
-import oui/animation
-
-...
 my_page.stack_switch(box3):
   asyncCheck my_page.slide_node(box3, UiRight)
 ```
@@ -520,8 +517,6 @@ list:
 Tables are typically used and displayed with [List's](#list), and can be declared using `decl_table`
 
 ```nim
-import oui/table
-...
 decl_table Customer, "name", "age"
 ``` 
 
@@ -537,7 +532,7 @@ Grab data using
 
 ```nim
 ... self.index is 0
-echo(table[self.index][ord CustomerName] & " is " & table[self.index][ord CustomerAge] & " years old"
+echo(table.at(index, ord CustomerName) & " is " & table.at(index, ord CustomerAge) & " years old"
 # Prints 'Fred is 29 years old"
 ```
 

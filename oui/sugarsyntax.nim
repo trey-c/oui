@@ -13,11 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import macros, strutils, glfw
+import macros, strutils
 from colors import parse_color, extract_rgb
 import nanovg except text
 import types, node, utils
 import testmyway
+
+when glfw_supported():
+  import glfw
+when glfm_supported():
+  import glfm/glfm
 
 var
   parents* {.compileTime.}: seq[NimNode] = @[]
@@ -165,16 +170,13 @@ template border_width*(t: float32) =
 template border_color*(c: Color) =
   self.border_color = c
 
-template border_color*(r, g, b: int = 255) =
-  self.border_color = rgb(r, g, b)
+template border_color*(c: string) =
+  var nimcolor = extract_rgb(parse_color(c))
+  border_color(color(nimcolor.r, nimcolor.g, nimcolor.b))
 
 template color*(c: Color) =
   self.gradient.active = false
   self.color = c
-
-template color*(r, g, b: int = 255) =
-  self.gradient.active = false
-  self.color = rgb(r, g, b)
 
 template color*(c: string) =
   self.gradient.active = false
@@ -245,6 +247,9 @@ template minw*(mw: float32) =
 template minh*(mh: float32) =
   self.minh = mh
 
+template resizable*(r: bool) =
+  self.resizable = r
+
 template render*(inner: untyped) =
   self.render.insert((proc(s, p: UiNode) {.closure.} =
     correct_self(s, p, inner)))
@@ -303,11 +308,33 @@ template unfocus*(inner: untyped) =
     if event.kind == UiUnfocus:
       `inner`
 
+template touch*(inner: untyped) =
+  events:
+    if event.kind == UiTouch:
+      inner
+
 template pressed*(inner: untyped) =
   ## Gets called when mouse button 1 gets press. Typically used with buttons
-  mouse_release:
-    if event.button == mb1:
-      inner
+  when glfw_supported():
+    mouse_press:
+      if event.button == mb1:
+        inner
+  when glfm_supported():
+    touch:
+      if event.phase == GLFMTouchPhaseBegan:
+        inner
+
+template released*(inner: untyped) =
+  when glfw_supported():
+    mouse_release:
+      if event.button == mb1:
+        inner
+  when glfm_supported():
+    touch:
+      if event.phase == GLFMTouchPhaseEnded:
+        inner
+
+
 
 template gradient*(x, y: float, c1, c2: Color) =
   self.gradient.active = true
