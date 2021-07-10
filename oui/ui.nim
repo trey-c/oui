@@ -108,12 +108,26 @@ template textbox*(inner: untyped, textstr: var string, label: string,
     border_width 2
     color style.normal
     border_color style.border_normal
+
+    text:
+      str label
+      update:
+        if textstr.len > 0 or self.parent.has_focus:
+          size 11
+          left parent.left
+          top parent.top
+          padding_left 3
+          padding_top 3
+        else:
+          center parent
+          size 15
     text:
       size 15
       update:
-        vcenter parent
+        bottom parent.bottom
         left parent.left
-        padding_left 5
+        padding_left 3
+        padding_bottom 3
         if password:
           var smth = ""
           for e in textstr:
