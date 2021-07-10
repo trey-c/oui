@@ -167,21 +167,27 @@ template padding*(top, left, bottom, right: float32) =
 template border_width*(t: float32) =
   self.border_width = t
 
+template border_width*(t: float32) =
+  self.border_width = t
+
 template border_color*(c: Color) =
   self.border_color = c
 
-template border_color*(c: string) =
-  var nimcolor = extract_rgb(parse_color(c))
-  border_color(rgb(nimcolor.r, nimcolor.g, nimcolor.b))
+template border_color*(r, g, b: int = 255) =
+  self.border_color = rgb(r, g, b)
 
 template color*(c: Color) =
   self.gradient.active = false
   self.color = c
 
+template color*(r, g, b: int = 255) =
+  self.gradient.active = false
+  self.color = rgb(r, g, b)
+
 template color*(c: string) =
   self.gradient.active = false
   var nimcolor = extract_rgb(parse_color(c))
-  color(rgb(nimcolor.r, nimcolor.g, nimcolor.b))
+  color(nimcolor.r, nimcolor.g, nimcolor.b)
 
 template opacity*(o: range[0f..1f]) =
   self.opacity = o

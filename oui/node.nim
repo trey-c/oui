@@ -396,7 +396,10 @@ when glfw_supported():
     cfg.visible = false
     cfg.transparentFramebuffer = true
     cfg.bits = (r: 8, g: 8, b: 8, a: 8, stencil: 8, depth: 16)
-    cfg.version = glv30
+    when defined windows:
+      cfg.version = glv20
+    else:
+      cfg.version = glv30
     cfg.debugContext = true
     result = newWindow(cfg)
     glfw.makeContextCurrent(result)
