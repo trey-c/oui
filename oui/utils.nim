@@ -104,8 +104,7 @@ proc load_font_by_name*(vg: NVGContext, name: string) {.exportc.} =
       echo "Couldn't load font: @" & loc
   elif defined linux:
     var loc = get_home_dir() & ".oui/fonts/" & name & ".ttf"
-
-    echo "loading"
+  when not defined android:
     try:
       var font = vg.createFont(name, loc)
       discard addFallbackFont(vg, font, font)

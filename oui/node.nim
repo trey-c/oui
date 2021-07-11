@@ -480,10 +480,10 @@ proc ensure_minimum_size(node: UiNode) {.exportc.} =
           for str in s.str.split_lines():
             var
               (a, b, lineh) = s.window.vg.textMetrics()
-              txtw = s.window.vg.text_width(str) + s.size
+              txtw = s.window.vg.text_width(str)
             if txtw > s.minw:
               s.minw = txtw
-            s.minh += lineh + s.size
+            s.minh += lineh
     if s.w < s.minw and s.minw > 0:
       s.w = s.minw
     if s.h < s.minh and s.minh > 0:
