@@ -82,7 +82,6 @@ template oui_error*[T](t: T) =
   ## Wraps `styled_echo` with an error prefix
   styled_echo fgRed, "oui_error ", resetStyle, t
 
-
 template oui_log*[T](t: T) =
   ## Wraps `styled_echo` with a log prefix.
   styled_echo fgMagenta, "oui_log ", resetStyle, t

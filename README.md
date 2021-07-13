@@ -90,9 +90,23 @@ Avoid installing glfw or nano because the nim bindings use their c source files 
 
 #### Android
 
-> Android studio is **not** required
+> Android studio and gradle are **not** required
 
-Run the gui `deploymobile` and connect an Android device to your computer.
+The following information is lacking. A more detailed explination will be added to the manual at somepoint.
+
+Execute the CLI `oui/deployandroid` to download/setup the >5gb androidsdk.
+
+`> oui/deployandroid setup sdk:29 jdk:8`
+
+Compile your nim modules/files like so:
+
+`> oui/deployandroid buildapk abi:armeabi nimfile:/absolute/path/app.nim`
+Your built apk will be located @ 'working_dir/.generated/final-output.apk'
+
+Connect your device via USB (make sure developer mode & usb debugging is enabled!)
+
+`> oui/deployandroid buildapk abi:armeabi nimfile:/absolute/path/app.nim`
+`> oui/deployandroid logcat`
 
 #### oui
 

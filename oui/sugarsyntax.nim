@@ -164,6 +164,9 @@ template padding*(top, left, bottom, right: float32) =
   self.padding_bottom = bottom
   self.padding_right = right
 
+template borderless*(b: bool) =
+  self.borderless = b
+
 template border_width*(t: float32) =
   self.border_width = t
 
@@ -340,8 +343,6 @@ template released*(inner: untyped) =
     touch:
       if event.phase == GLFMTouchPhaseEnded:
         inner
-
-
 
 template gradient*(x, y: float, c1, c2: Color) =
   self.gradient.active = true

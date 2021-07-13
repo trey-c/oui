@@ -366,21 +366,15 @@ when glfw_supported():
     true
 
   var oui_glfw_main_called: bool = false
-  proc oui_glfw_main*() =
-    if oui_glfw_main_called:
-      oui_warning "oui_glfw_main already called"
-    oui_glfw_main_called = true
-
+  proc oui_glfw_main*(window: UiNode) =
     var close = false
     while close != true:
       glfw.swapInterval(0)
-      for window in windows:
-        if window.handle.shouldClose():
-          if no_windows_opened():
-            close = true
-        glfw.makeContextCurrent(window.handle)
-        window.draw_opengl()
-        glfw.swapBuffers(window.handle)
+      if window.visible == false or window.handle.should_close():
+        close = true
+      glfw.makeContextCurrent(window.handle)
+      window.draw_opengl()
+      glfw.swapBuffers(window.handle)
 
       glfw.waitEvents()
 
@@ -393,6 +387,7 @@ when glfw_supported():
     cfg.size = (w: int window.w, h: int window.h)
     cfg.title = "oui_glfw_window"
     cfg.resizable = window.resizable
+    cfg.decorated = if window.borderless: false else: true
     cfg.visible = false
     cfg.transparentFramebuffer = true
     cfg.bits = (r: 8, g: 8, b: 8, a: 8, stencil: 8, depth: 16)
@@ -522,6 +517,7 @@ proc init*(T: type UiNode, k: UiNodeKind): UiNode =
   if result.kind == UiWindow:
     result.window = result
     result.resizable = true
+    result.borderless = false
     result.title = "oui - Ocicat Ui Framework"
     result.is_popup = false
     result.focused_node = nil
@@ -603,7 +599,7 @@ proc show*(node: UiNode) {.exportc.} =
     s(node, node.parent)
   when glfw_supported():
     if node.kind == UiWindow and oui_glfw_main_called == false:
-      oui_glfw_main()
+      oui_glfw_main(node)
   when glfm_supported():
     if node.kind == UiWindow:
       onlywindow = node

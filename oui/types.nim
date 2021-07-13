@@ -122,7 +122,7 @@ type
       title*: string
       exposed*, is_popup*: bool
       focused_node*: UiNode
-      resizing*, resizable*: bool
+      resizing*, resizable*, borderless*: bool
       cursor_pos*: tuple[x, y: float]
       gl_nodes*: seq[UiNode]
     of UiBox:

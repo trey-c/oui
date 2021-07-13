@@ -15,12 +15,11 @@
 
 import macros, strutils, glfw
 import nanovg except text
-export strutils
-import types, node, sugarsyntax
-import testmyway
+import types, node, sugarsyntax, utils
 import times
 import tables
 import math
+import testaid
 
 template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
   var tmp = 0.0
@@ -203,22 +202,23 @@ template scrollable*(inner: untyped) =
         child.y = float32 yoffset + child.y
     mouse_leave:
       swiping = false
-    mouse_press:
-      if event.button == mb1:
-        swiping = true
-      if event.button == mb4:
-        yoffset = yoffset + 8
-      elif event.button == mb5:
-        yoffset = yoffset - 8
-      self.queue_redraw()
-    mouse_release:
-      if event.button == mb1:
-        swiping = false
-    mouse_motion:
-      if swiping:
-        yoffset = yoffset - (mousey - float event.y)
+    when glfw_supported():
+      mouse_press:
+        if event.button == mb1:
+          swiping = true
+        if event.button == mb4:
+          yoffset = yoffset + 8
+        elif event.button == mb5:
+          yoffset = yoffset - 8
         self.queue_redraw()
-      mousey = float event.y
+      mouse_release:
+        if event.button == mb1:
+          swiping = false
+      mouse_motion:
+        if swiping:
+          yoffset = yoffset - (mousey - float event.y)
+          self.queue_redraw()
+        mousey = float event.y
     inner
 
 template list*(inner: untyped) =
@@ -230,8 +230,17 @@ template list*(inner: untyped) =
 template popup*(inner: untyped) =
   window:
     self.is_popup = true
+    borderless true
+    resizable false
     unfocus:
       self.hide()
+    when glfw_supported():
+      shown:
+        let
+          cursorpos = cursor_pos(self.handle)
+          windowpos = pos(self.handle)
+        self.move(float(windowpos.x + int(cursorpos.x)), float(windowpos.y +
+            int(cursorpos.y)))
     inner
 
 template stack*(inner: untyped) =
@@ -251,18 +260,21 @@ template bargraph*(inner: untyped, data: var seq[tuple[xname: string,
       var
         vg = self.window.vg
         xpos = 25.0 + SCALE
-        ypos = self.h - SCALE * 3
+        ypos = self.h
         i = 0
         ysc = 0.0
         maxyname = 0.0
       for d in data:
         if maxyname < parse_float(d[1]):
           maxyname = parse_float(d[1])
-      var rycount = self.h / maxyname
-      for i in 0..ycount:
-        vg.draw_text($ysc, "bauhaus", blue(255), SCALE, 25, ypos)
-        ysc += maxyname / ycount
-        ypos -= SCALE + 15
+      var x = 1.0
+      while x <= maxyname:
+        if maxyname mod x == 0.0:
+          vg.draw_text($x, "bauhaus", blue(255), SCALE, 25, ypos)
+          x = x + 1
+          ypos -= 20
+        else:
+          x = x * 2
       for d in data:
         if i == 0:
           xpos += vg.text_width(data[0][1])
@@ -271,14 +283,28 @@ template bargraph*(inner: untyped, data: var seq[tuple[xname: string,
         # Bars
         var tw = vg.text_width(d[0])
         vg.beginPath()
-        vg.rect(xpos - 5, self.h - 25 - (ycount * parse_float(d[1])), tw + 5,
-            ycount * parse_float(d[1]))
+        vg.rect(xpos - 5, (self.h - ypos) - 25 - (parse_float(d[1])), tw + 5,
+            parse_float(d[1]))
         vg.fillColor(red(255))
         vg.fill()
 
         xpos += vg.text_width(d[0]) + 25
         i.inc
     inner
+
+template logbargraph*(inner: untyped, data: var seq[tuple[xname: string,
+    yname: string]]) =
+  canvas:
+    paint:
+      var
+        vg = self.window.vg
+        xpos = 25.0
+        ypos = self.h
+      for x in 1..5:
+        vg.draw_text($x, "bauhaus", blue(255), 25.0, xpos, ypos)
+        ypos -= 5
+    inner
+
 
 template linegraph*(inner: untyped, data: var seq[tuple[name: string,
     specific: string]], ycount: float) =
@@ -321,7 +347,15 @@ template linegraph*(inner: untyped, data: var seq[tuple[name: string,
           vg.moveTo(xpos - 5, dpoint)
           vg.strokeColor(rgb(0, 160, 192))
 
-template calendar_button(inner: untyped, label: string) =
+          xpos += vg.text_width(d[0]) + 25
+
+          vg.lineTo(xpos - 5, total - parse_float(data[i + 1][1]))
+          vg.strokeWidth(3.0)
+          vg.stroke()
+        i.inc
+    inner
+
+template calendar_button(inner: untyped, label: string, widget: UiNode) =
   button:
     text:
       str label
@@ -329,7 +363,7 @@ template calendar_button(inner: untyped, label: string) =
       update:
         center parent
     update:
-      size 50, self[0].minh * 2
+      size widget.w / 7, widget.h / 6
     inner
 
 proc add_days_for_week_day(cal: var OrderedTable[string, seq[int]],
@@ -356,62 +390,93 @@ template calendar*(inner: untyped, year, month: int, cb: proc(day, month, year: 
   for weekday in offsetdays:
     add_days_for_week_day(cal, weekday, month, year)
   row:
+    var widget = self
     text:
       str $Month(month) & " - Year " & $year
-      size 11
+      size 15
+      update:
+        hcenter parent
+    spacing 5
     column:
       update:
-        h parent.h - parent[0].h * 2
+        h parent.h - parent[0].h
         w parent.w
       for k, v in cal.pairs:
         column:
-          w 50
           update:
+            w widget.w / 7
             h parent.h
           row:
-            w 100
             update:
+              w widget.w / 7
               h parent.h
             calendar_button:
               discard
             do: k
+            do: widget
             for d in v:
               calendar_button:
                 pressed:
                   cb(parse_int(self[0].str), month, year)
               do: $d
+              do: widget
     inner
 
-test_my_way "ui":
+testaid:
+  test "button":
+    button:
+      size 200, 40
+      pressed:
+        if not self.window.is_nil():
+          self.window.hide()
+      text:
+        str "Tap to close"
+        update:
+          center parent
+      self.show()
+
+  test "textbox":
+    var txtstr = ""
+    textbox:
+      size 200, 40
+      self.show()
+    do: txtstr
+    do: "Txtstr label"
+
+  test "row":
+    row:
+      size 200, 500
+      for i in 1..3:
+        box:
+          size parent.w, 50
+      self.show()
+  test "column":
+    column:
+      size 500, 200
+      for i in 1..3:
+        box:
+          size 50, parent.h
+      self.show()
+
   test "calendar":
     calendar:
       update:
         size 1000, 1000
       self.show()
     do: 2011
-    do: 4
+    do: 3
     do: (proc(day, month, year: int) = discard)
-  # test "declarations":
-  #   window:
-  #     id testapp
-  #     size 100, 100
-  #     button:
-  #       id btn
-  #       check parent.id == "testapp"
-  #       text:
-  #         check parent.id == "btn"
-  #     row:
-  #       check parent.id == "testapp"
-  #     column:
-  #       check parent.id == "testapp"
-  #     var tt = "f"
-  #     textbox:
-  #       id txtbx
-  #       check self.id == "txtbx"
-  #       check parent.id == "testapp"
-  #     do: tt
-  #     do: "sdf"
-  #     bargraph:
-  #       discard
-  #     check testapp.children.len == 5
-  #   testapp.show()
+
+  test "logbargraph":
+    var data = @[
+      ("Monday", "55"),
+      ("Tuesday", "104"),
+      ("Wednesday", "35"),
+      ("Thursday", "65"),
+      ("Friday", "51"),
+      ("Saturday", "93")
+    ]
+    logbargraph:
+      size 500, 500
+      self.show()
+    do: data
