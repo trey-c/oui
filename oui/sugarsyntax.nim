@@ -16,8 +16,8 @@
 import macros, strutils
 from colors import parse_color, extract_rgb
 import nanovg except text
-import types, node, utils
-import testmyway
+import types, node, utils, json
+import testaid
 
 when glfw_supported():
   import glfw
@@ -43,6 +43,8 @@ template node*(kind: UiNodeKind, inner: untyped,
   self = node
   node_next_parent(node, delegate)
   inner
+  if kind == UiLayout and not node.json_array.is_nil():
+    self.refill_delegates()
   static:
     if parents.len > 0:
       discard parents.pop()
@@ -97,8 +99,8 @@ template correct_self(s, p: UiNode, inner: untyped) =
   self = tmpself
   parent = tmpparent
 
-template table*(m: UiTable) =
-  self.set_table m
+template json_array*(m: JsonNode) =
+  self.set_j_array(m)
 
 macro id*(str: untyped) =
   parse_stmt("""
@@ -107,10 +109,10 @@ $1.id = "$1"
   """ % [str.str_val])
 
 template delegate*(inner: untyped) =
-  self.delegate = proc(tmptable: UiTable, tmpindex: int): UiNode =
+  self.delegate = proc(tmp_json_array: JsonNode, tmpindex: int): UiNode =
     var
-      table {.inject.} = tmptable
       index {.inject.} = tmpindex
+      jobj {.inject.} = tmp_json_array[index]
     static:
       tmpparents = parents
       parents.set_len 0
@@ -386,7 +388,7 @@ template border_bottom*(thickness: float32, inner: untyped) =
       size parent.w, thickness
       inner
 
-test_my_way "sugarsyntax":
+testaid:
   test "children":
     box:
       id box1

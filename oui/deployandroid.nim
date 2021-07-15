@@ -124,9 +124,9 @@ proc buildlib(toolchain, target, file: string): int =
   let
     clangpath = "--arm.android.clang.path=\"" & toolchain & "/bin" & "\""
     clangldexe = "--arm.android.clang.exe=\"clang\" --arm.android.clang.linkerexe=\"ld\" " & clangpath
-    passc = "--passC=\"--target=" & target & $settings{"sdk_version"}.get_int() & "\""
+    passc = "--passC=\"--target=" & target & "$settings{sdk_version}.get_int() & \""
     passl = "--passL=\"-L" & toolchain & "/sysroot/usr/lib/" & target &
-        "/" & $settings{"sdk_version"}.get_int() & " -L" & toolchain &
+        "/" & "$settings{sdk_version}.get_int()" & " -L" & toolchain &
             "/lib/gcc/" & target &
             "/4.9.x " & "-L" & toolchain & "/sysroot/usr/lib/" & target & " -lgcc -llog -lm -lc -lEGL -lGLESv2 -landroid\""
     nimcmd = "nim c " & clangldexe & " " & passc & " " & passl & " --app:lib --cpu:arm --os:android -d:androidNDK -d:nvgGLES2 --noMain:on --cc:clang "
@@ -214,10 +214,8 @@ proc build(sdk, output: string, args: JsonNode, apk: bool) =
   generate_output_structure(output)
   let
     ndk = normalized_path(sdk & "/sdk/ndk-bundle")
-    platform = normalized_path(sdk & "/sdk/platforms/android-" & $settings[
-        "sdk_version"].get_int())
-    toolchain = normalized_path(ndk & "/toolchains/llvm/prebuilt/" & settings{
-            "host"}.get_str())
+    platform = normalized_path(sdk & "/sdk/platforms/android-" & "$settings[sdk_version].get_int()")
+    toolchain = normalized_path(ndk & "/toolchains/llvm/prebuilt/" & "settings{host}.get_str()")
     jdk = normalized_path(sdk & "/jdk")
     build_tools = normalized_path(sdk & "sdk/build-tools/29.0.2")
     target = args["abi"].get_str()

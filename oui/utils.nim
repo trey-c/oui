@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-import strutils, terminal, os
+import strutils, terminal, os, json
 export terminal
 import nanovg
 when defined android:
@@ -23,6 +23,11 @@ when defined android:
   import android/content/context
   import android/ndk/aasset_manager
   import jnim
+
+import sequtils, json
+
+proc filter*(jarray: JsonNode, cb: proc(j: JsonNode): bool): JsonNode =
+  %* jarray.getElems().filter(proc(j: JsonNode): bool = cb(j))
 
 proc draw_text*(vg: NVGContext, text, face: string, color: Color, size,
     x, y: float32) =

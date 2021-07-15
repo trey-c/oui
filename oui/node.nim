@@ -1,6 +1,6 @@
 # import oui
 
-import oui/types
+import types
 when glfm_supported():
   import glfm/glfm
   import android/ndk/[aasset_manager, anative_activity]
@@ -12,11 +12,10 @@ when glfw_supported():
   import glfw
   import private/gladgl
 
-
+import utils
+import json
 import nanovg
-import oui/utils
-import oui/table
-import testmyway
+import testaid
 import options, colors, unicode, os, strutils
 
 proc draw(node: UiNode, vg: NVGContext)
@@ -141,12 +140,12 @@ template handle_event_offset(window, child: UiNode, ev: var UiEvent) =
 
 proc request_focus*(node, target: UiNode) {.gcsafe, exportc.} =
   assert node.kind == UiWindow
+  node.handle.focus()
   if node.focused_node != nil:
     node.focused_node.has_focus = false
     {.cast(gcsafe).}:
       var e = UiEvent(kind: UiUnfocus, x: 0, y: 0)
       node.handle_event_offset(node.focused_node, e)
-
   node.focused_node = target
   target.has_focus = true
   {.cast(gcsafe).}:
@@ -194,10 +193,8 @@ proc real_root_coords*(node: UiNode): tuple[x, y: int32] =
     if node.kind == UiWindow:
       result = node.handle.pos
     else:
-      if node.window == nil:
-        return (0, 0)
-      var pos = node.window.handle.pos
-      result = (x: int32(node.rootx) + pos.x, y: int32(node.rooty) + pos.y)
+      var pos = node.parent.real_root_coords()
+      result = (x: int32(self.x) + pos.x, y: int32(self.y) + pos.y)
   when glfm_supported():
     discard
 
@@ -357,25 +354,31 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
         else:
           window.handle_event_offset(n, ev)
 
+proc hide*(node: UiNode) {.exportc.} =
+  ## The application will be terminated if all windows are hidden
+  if node.kind == UiWindow:
+    when glfw_supported():
+      node.handle.hide()
+  node.visible = false
+  for h in node.hidden:
+    h(node, node.parent)
+  for child in node:
+    child.hide()
 
 when glfw_supported():
-  proc no_windows_opened(): bool =
-    for window in windows:
-      if window.handle.shouldClose() == false:
-        return false
-    true
-
-  var oui_glfw_main_called: bool = false
   proc oui_glfw_main*(window: UiNode) =
     var close = false
     while close != true:
       glfw.swapInterval(0)
-      if window.visible == false or window.handle.should_close():
+      if window.visible == false:
         close = true
-      glfw.makeContextCurrent(window.handle)
-      window.draw_opengl()
-      glfw.swapBuffers(window.handle)
-
+      for win in windows:
+        if win.handle.should_close():
+          win.hide()
+        if win.visible:
+          glfw.makeContextCurrent(win.handle)
+          win.draw_opengl()
+          glfw.swapBuffers(win.handle)
       glfw.waitEvents()
 
   var glfw_not_inited: bool = true
@@ -504,7 +507,7 @@ proc init*(T: type UiNode, k: UiNodeKind): UiNode =
     draw_post: @[],
     accepts_focus: false,
     index: 0,
-    table: nil,
+    json_array: nil,
     children: @[],
     color: rgb(255, 255, 255),
     opacity: 1f,
@@ -591,6 +594,7 @@ proc show*(node: UiNode) {.exportc.} =
       node.update_attributes.add proc(s, p: UiNode) = s.fill p
       node.window.show()
       return
+
   if node.visible == false:
     for child in node:
       child.show()
@@ -598,45 +602,32 @@ proc show*(node: UiNode) {.exportc.} =
   for s in node.shown:
     s(node, node.parent)
   when glfw_supported():
-    if node.kind == UiWindow and oui_glfw_main_called == false:
+    if node.kind == UiWindow:
       oui_glfw_main(node)
   when glfm_supported():
     if node.kind == UiWindow:
       onlywindow = node
 
-proc hide*(node: UiNode) {.exportc.} =
-  ## The application will be terminated if all windows are hidden
-  if node.kind == UiWindow:
-    when glfw_supported():
-      node.handle.hide()
-      node.handle.shouldClose = true
-  node.visible = false
-  for h in node.hidden:
-    h(node, node.parent)
-  for child in node:
-    child.hide()
 
 proc add_delegate*(node: UiNode, index: int) {.exportc.} =
-  var delegate = node.delegate(node.table, index)
-  delegate.table = node.table
+  var delegate = node.delegate(node.json_array, index)
+  delegate.json_array = node.json_array
   delegate.index = index
   node.add(delegate)
 
-proc set_table*(node: UiNode, table: UiTable) {.exportc.} =
-  if table == nil:
-    node.table = nil
-    return
+proc refill_delegates*(node: UiNode) =
+  node.children.set_len 0
+  var i = 0
+  for j in node.json_array:
+    node.add_delegate(i)
+    i.inc
 
-  node.table = table
-  node.table.table_added = proc(index: int) =
-    node.add_delegate(index)
-    ouidebug "table row added at index " & $index
-  node.table.table_removed = proc(index: int) =
-    ouidebug "table row removed at index " & $index
+proc set_j_array*(node: UiNode, jarray: JsonNode) {.exportc.} =
+  node.json_array = jarray
   node.shown.add(proc(s, p: UiNode) =
-    for idx in s.table.loop():
-      s.add_delegate(idx)
+    node.refill_delegates()
   )
   node.hidden.add(proc(s, p: UiNode) =
     s.children.set_len 0
   )
+

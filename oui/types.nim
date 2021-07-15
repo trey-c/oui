@@ -12,9 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import tables
 import nanovg
+import json
 
 proc glfm_supported*(): bool =
   if defined android:
@@ -64,13 +63,6 @@ type
 
   UiEventCallback* = proc(ev: UiEvent) {.gcsafe.}
 
-  UiTableRow* = OrderedTable[int, string]
-
-  UiTable* = ref object
-    list*: seq[UiTableRow]
-    count*: int
-    table_added*, table_removed*: proc(index: int)
-
   UiAnchor* = distinct float32
 
   UiAlignment* = enum
@@ -79,10 +71,10 @@ type
 
   UpdateAttributesCb* = proc(self, parent: UiNode)
   ArrangeLayoutCb* = proc(self, parent: UiNode)
-  OnEventCb* = proc(self, parent: UiNode, event: var UiEvent)
+  OnEventCb* = proc(self, parent: UiNode; event: var UiEvent)
   DrawPostCb* = proc(self, parent: UiNode)
   RenderCb* = proc(self, parent: UiNode)
-  PaintCb* = proc(self, parent: UiNode, vg: NVGContext)
+  PaintCb* = proc(self, parent: UiNode; vg: NVGContext)
   ShownCb* = proc(self, parent: UiNode)
   HiddenCb* = proc(self, parent: UiNode)
 
@@ -99,7 +91,8 @@ type
     minw*, minh*: float32
     rootx*, rooty*: float
     padding_top*, padding_left*, padding_bottom*, padding_right*: float32
-    table*: UiTable
+    margin_top*, margin_left*, margin_bottom*, margin_right*: float32
+    json_array*: JsonNode
     visible*, force_redraw*, animating*: bool
     hovered*, has_focus*, accepts_focus*: bool
     update_attributes*: seq[UpdateAttributesCb]
@@ -112,7 +105,7 @@ type
     opacity*: range[0f..1f]
     left_anchored*, top_anchored*: bool
     oldw*, oldh*: float32
-    gradient*: tuple[sx, sy, ex, ey: float, active: bool, color1, color2: Color]
+    gradient*: tuple[sx, sy, ex, ey: float; active: bool; color1, color2: Color]
     case kind*: UiNodeKind
     of UiWindow:
       when glfw_supported():
@@ -137,8 +130,7 @@ type
       paint*: seq[PaintCb]
     of UiLayout:
       spacing*: float32
-      delegates: seq[UiNode]
-      delegate*: proc(table: UiTable, index: int): UiNode
+      delegate*: proc(table: JsonNode; index: int): UiNode
       arrange_layout*: seq[ArrangeLayoutCb]
     of UiImage:
       src*: string

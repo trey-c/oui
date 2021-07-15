@@ -20,6 +20,7 @@ import times
 import tables
 import math
 import testaid
+import json
 
 template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
   var tmp = 0.0
@@ -167,17 +168,54 @@ template textbox*(inner: untyped, textstr: var string, label: string,
       vg.fill()
     inner
 
-template combobox*(inner: untyped) =
-  var ppp: UiNode
-  popup:
-    ppp = self
-    delegate text, UiText:
-      str "idk"
-  textbox:
-    mouse_press:
-      up.show()
-      up.move_window(ev.xroot, ev.yroot)
-    inner
+template combobox*(inner: untyped, jarray: JsonNode, label: string) =
+  block:
+    var
+      comstr = "sh"
+    textbox:
+      id txtbx
+      popup:
+        id up
+
+        size 150, 200
+        visible false
+        self.event.set_len 0
+        self.shown.set_len 0
+        shown:
+          var pos = txtbx.real_root_coords()
+          self.resize(txtbx.w, up.h)
+          self.move(float pos.x, float(pos.y) + txtbx.h)
+          txtbx.window.request_focus(txtbx)
+        row:
+          json_array jarray
+          update:
+            fill parent
+          spacing 10
+          delegate:
+            text:
+              result = self
+              str jarray[index].get_str()
+      hidden:
+        if up.visible:
+          up.hide()
+      key_press:
+        var ok = false
+        for j in jarray:
+          if j.get_str().to_lower().contains(comstr.to_lower()):
+            ok = true
+
+        if ok:
+          up[0].set_j_array jarray.filter(proc(j: JsonNode): bool =
+            j.get_str().to_lower().contains(comstr.to_lower())
+          )
+          # comstr.delete(comstr.high, comstr.high)
+          up[0].show()
+      pressed:
+        up.show()
+
+      inner
+    do: comstr
+    do: label
 
 template row*(inner: untyped) =
   layout:
@@ -423,6 +461,14 @@ template calendar*(inner: untyped, year, month: int, cb: proc(day, month, year: 
     inner
 
 testaid:
+  test "combobox":
+    var customers = %* ["Sheridan", "Apples", "Meridan Hotel? Tavigo"]
+    combobox:
+      size 150, 40
+      self.show()
+    do: customers
+    do: "cool text box"
+
   test "button":
     button:
       size 200, 40
