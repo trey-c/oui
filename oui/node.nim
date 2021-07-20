@@ -8,6 +8,7 @@ when glfm_supported():
   import android/view/[window_manager, display]
   import android/app/activity
   import opengl
+
 when glfw_supported():
   import glfw
   import private/gladgl
@@ -17,12 +18,15 @@ import json
 import nanovg
 import testaid
 import options, colors, unicode, os, strutils
+import asyncdispatch
 
 proc draw(node: UiNode, vg: NVGContext)
 proc handle_event*(window, node: UiNode, ev: var UiEvent)
 
 var
-  parent*, prev_parent*, self*: UiNode
+  parent* {.threadvar.}: UiNode
+  prev_parent* {.threadvar.}: UiNode
+  self* {.threadvar.}: UiNode
   event*: UiEvent
 
 when glfw_supported():
@@ -380,9 +384,10 @@ when glfw_supported():
           win.draw_opengl()
           glfw.swapBuffers(win.handle)
       glfw.waitEvents()
+      # poll()
 
   var glfw_not_inited: bool = true
-  proc create_glfw_window(window: UiNode): Window =
+  proc create_glfw_window(window: UiNode): glfw.Window =
     if glfw_not_inited:
       glfw.initialize()
 
@@ -394,10 +399,10 @@ when glfw_supported():
     cfg.visible = false
     cfg.transparentFramebuffer = true
     cfg.bits = (r: 8, g: 8, b: 8, a: 8, stencil: 8, depth: 16)
-    when defined windows:
-      cfg.version = glv20
-    else:
+    when defined android:
       cfg.version = glv30
+    else:
+      cfg.version = glv20
     cfg.debugContext = true
     result = newWindow(cfg)
     glfw.makeContextCurrent(result)
@@ -407,17 +412,17 @@ when glfw_supported():
       if not gladLoadGL(getProcAddress):
         oui_error "glad failed to load gl"
 
-    result.windowSizeCb = proc(w: Window, size: tuple[w, h: int32]) =
+    result.windowSizeCb = proc(w: glfw.Window, size: tuple[w, h: int32]) =
       window.resizing = true
       window.resize(float size.w, float size.h)
       window.resizing = false
 
     when defined windows:
       # Allows the window to redraw while being resized
-      result.framebufferSizeCb = proc(w: Window, size: tuple[w, h: int32]) =
+      result.framebufferSizeCb = proc(w: glfw.Window, size: tuple[w, h: int32]) =
         w.swapBuffers()
 
-    result.mouseButtonCb = proc(w: Window, b: MouseButton, pressed: bool,
+    result.mouseButtonCb = proc(w: glfw.Window, b: MouseButton, pressed: bool,
         mods: set[ModifierKey]) =
       if pressed:
         var e = UiEvent(kind: UiMousePress, button: b, x: window.cursor_pos.x,
@@ -428,12 +433,12 @@ when glfw_supported():
             y: window.cursor_pos.y)
         window.handle_event(window, e)
 
-    result.cursorPositionCb = proc(w: Window, pos: tuple[x, y: float64]) =
+    result.cursorPositionCb = proc(w: glfw.Window, pos: tuple[x, y: float64]) =
       window.cursor_pos = (x: pos.x, y: pos.y)
       var e = UiEvent(kind: UiMouseMotion, x: pos.x, y: pos.y)
       window.handle_event(window, e)
 
-    result.cursorEnterCb = proc(w: Window, entered: bool) =
+    result.cursorEnterCb = proc(w: glfw.Window, entered: bool) =
       if entered:
         var e = UiEvent(kind: UiEnter, x: window.cursor_pos.x,
             y: window.cursor_pos.y)
@@ -443,7 +448,7 @@ when glfw_supported():
             y: window.cursor_pos.y)
         window.handle_event(window, e)
 
-    result.window_focus_cb = proc(w: Window, focused: bool) =
+    result.window_focus_cb = proc(w: glfw.Window, focused: bool) =
       if focused:
         var e = UiEvent(kind: UiFocus, x: 0, y: 0)
         window.handle_event(window, e)
@@ -451,14 +456,14 @@ when glfw_supported():
         var e = UiEvent(kind: UiUnfocus, x: 0, y: 0)
         window.handle_event(window, e)
 
-    result.charCb = proc(w: Window, codePoint: Rune) =
+    result.charCb = proc(w: glfw.Window, codePoint: Rune) =
       var e = UiEvent(kind: UiKeyPress, key: keyUnknown, mods: {},
           ch: codePoint.toUTF8(),
         x: window.cursor_pos.x, y: window.cursor_pos.y)
       window.handle_event(window, e)
 
-    result.keyCb = proc(w: Window, key: Key, scanCode: int32, action: KeyAction,
-        mods: set[ModifierKey]) =
+    result.keyCb = proc(w: glfw.Window, key: Key, scanCode: int32,
+        action: KeyAction, mods: set[ModifierKey]) =
       if action == kaDown:
         var e = UiEvent(kind: UiKeyPress, key: key, mods: mods, ch: "",
           x: window.cursor_pos.x, y: window.cursor_pos.y)
@@ -482,6 +487,16 @@ proc ensure_minimum_size(node: UiNode) {.exportc.} =
             if txtw > s.minw:
               s.minw = txtw
             s.minh += lineh
+    elif s.children.len > 0:
+      s.minw = 0
+      s.minh = 0
+      for child in s:
+        s.minw += child.minw
+        s.minh += child.minh
+        if s.kind == UiLayout:
+          s.minw += s.spacing
+          s.minh += s.spacing
+
     if s.w < s.minw and s.minw > 0:
       s.w = s.minw
     if s.h < s.minh and s.minh > 0:
@@ -533,7 +548,6 @@ proc init*(T: type UiNode, k: UiNodeKind): UiNode =
     result.size = 14
     result.color = rgb(35, 35, 35)
 
-
 when glfm_supported():
   proc NimMain() {.importc.}
   proc glfmMain*(display: ptr GLFMDisplay) {.exportc.} =
@@ -571,43 +585,43 @@ when glfm_supported():
       onlywindow.vg.endFrame()
       glFlush()
 
-proc show*(node: UiNode) {.exportc.} =
-  if node.kind == UiWindow:
-    when glfw_supported():
-      if node.handle == nil:
-        node.handle = create_glfw_window(node)
-        windows.add(node)
-        node.vg = nvgCreateContext({nifStencilStrokes})
-        node.vg.load_font_by_name("bauhaus")
-    node.resize(node.w, node.h)
-    discard
-    when glfw_supported():
-      node.handle.show()
-      node.handle.shouldClose = false
-  else:
-    if node.parent == nil and node.window == nil:
-      node.trigger_update_attributes()
-      node.window = UiNode.init(UiWindow)
-      node.window.w = if node.w > 0: node.w else: 100
-      node.window.h = if node.h > 0: node.h else: 100
-      node.window.add(node)
-      node.update_attributes.add proc(s, p: UiNode) = s.fill p
-      node.window.show()
-      return
-
-  if node.visible == false:
-    for child in node:
-      child.show()
-  node.visible = true
-  for s in node.shown:
-    s(node, node.parent)
-  when glfw_supported():
+proc show*(node: UiNode) =
+  {.cast(gcsafe).}:
     if node.kind == UiWindow:
-      oui_glfw_main(node)
-  when glfm_supported():
-    if node.kind == UiWindow:
-      onlywindow = node
+      when glfw_supported():
+        if node.handle == nil:
+          node.handle = create_glfw_window(node)
+          windows.add(node)
+          node.vg = nvgCreateContext({nifStencilStrokes})
+          node.vg.load_font_by_name("bauhaus")
+      node.resize(node.w, node.h)
+      discard
+      when glfw_supported():
+        node.handle.show()
+        node.handle.shouldClose = false
+    else:
+      if node.parent == nil and node.window == nil:
+        node.trigger_update_attributes()
+        node.window = UiNode.init(UiWindow)
+        node.window.w = if node.w > 0: node.w else: 100
+        node.window.h = if node.h > 0: node.h else: 100
+        node.window.add(node)
+        node.update_attributes.add proc(s, p: UiNode) = s.fill p
+        node.window.show()
+        return
 
+    if node.visible == false:
+      for child in node:
+        child.show()
+    node.visible = true
+    for s in node.shown:
+      s(node, node.parent)
+    when glfw_supported():
+      if node.kind == UiWindow:
+        oui_glfw_main(node)
+    when glfm_supported():
+      if node.kind == UiWindow:
+        onlywindow = node
 
 proc add_delegate*(node: UiNode, index: int) {.exportc.} =
   var delegate = node.delegate(node.json_array, index)
@@ -616,11 +630,12 @@ proc add_delegate*(node: UiNode, index: int) {.exportc.} =
   node.add(delegate)
 
 proc refill_delegates*(node: UiNode) =
-  node.children.set_len 0
-  var i = 0
-  for j in node.json_array:
-    node.add_delegate(i)
-    i.inc
+  {.cast(gcsafe).}:
+    node.children.set_len 0
+    var i = 0
+    for j in node.json_array:
+      node.add_delegate(i)
+      i.inc
 
 proc set_j_array*(node: UiNode, jarray: JsonNode) {.exportc.} =
   node.json_array = jarray
@@ -631,3 +646,52 @@ proc set_j_array*(node: UiNode, jarray: JsonNode) {.exportc.} =
     s.children.set_len 0
   )
 
+
+testaid:
+  var
+    box1: UiNode
+    box2: UiNode
+
+  test "init":
+    box1 = UiNode.init(UiBox)
+    box2 = UiNode.init(UiBox)
+
+  test "contains":
+    box1.w = 100
+    box1.h = 100
+    box2.w = 200
+    box2.h = 59
+
+    check box1.contains(99, 99)
+    check box2.contains(50, 50)
+
+    box2.set_left box1.right
+    check box2.x == 100
+
+    check box2.contains(50, 50) == false
+    check box2.contains(105, 150) == false
+    check box2.contains(105, 50)
+  test "window":
+    var win = UiNode.init(UiWindow)
+    win.color = black(245)
+    box1.color = red(255)
+    box2.color = blue(255)
+    box1.update_attributes.add proc(s, p: UiNode) =
+      s.set_right(p.right)
+      s.set_bottom(p.bottom)
+
+    win.add box1
+    win.add box2
+    var box3 = UiNode.init(UiBox)
+    box3.w = 50
+    box3.h = 50
+    box3.color = green(200)
+    box2.add box3
+    var box4 = UiNode.init(UiBox)
+    box4.w = 50
+    box4.h = 50
+    box4.color = green(150)
+    box4.update_attributes.add proc(s, p: UiNode) =
+      s.center(p)
+    win.add box4
+    win.show()

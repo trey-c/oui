@@ -109,7 +109,7 @@ type
     case kind*: UiNodeKind
     of UiWindow:
       when glfw_supported():
-        handle*: Window
+        handle*: glfw.Window
       vg*: NVGContext
       buffer*: NVGLUFramebuffer
       title*: string

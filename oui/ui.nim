@@ -290,59 +290,45 @@ template stack*(inner: untyped) =
         node.fill self
     inner
 
-template bargraph*(inner: untyped, data: var seq[tuple[xname: string,
-    yname: string]], ycount: float) =
+template bargraph*(inner: untyped, num_of_ys: int = 4, scale: float = 25.0) =
   canvas:
+    inner
+    assert not self.json_array.is_nil()
     paint:
-      const SCALE = 15
       var
         vg = self.window.vg
-        xpos = 25.0 + SCALE
         ypos = self.h
-        i = 0
+        max_yval = 0.0
         ysc = 0.0
-        maxyname = 0.0
-      for d in data:
-        if maxyname < parse_float(d[1]):
-          maxyname = parse_float(d[1])
-      var x = 1.0
-      while x <= maxyname:
-        if maxyname mod x == 0.0:
-          vg.draw_text($x, "bauhaus", blue(255), SCALE, 25, ypos)
-          x = x + 1
-          ypos -= 20
-        else:
-          x = x * 2
-      for d in data:
-        if i == 0:
-          xpos += vg.text_width(data[0][1])
-        vg.draw_text(d[0], "bauhaus", blue(255), SCALE, xpos, self.h - SCALE - 5)
+        xpos = scale * 2.0
+      for jobj in self.json_array:
+        var yval = float jobj["yval"].get_int()
+        max_yval = if yval > max_yval: yval else: max_yval
 
-        # Bars
-        var tw = vg.text_width(d[0])
+      # Draw y axis vals
+      for i in 0..num_of_ys - 1:
+        ysc += max_yval / float num_of_ys
+        ypos -= (self.h) / float(num_of_ys)
+        vg.draw_text($(int ysc), "bauhaus", blue(255), scale, 0, ypos)
+
+      # Draw x axis words
+      for jobj in self.json_array:
+        var
+          yval = float jobj["yval"].get_int()
+          xname = jobj["xname"].get_str()
+          txtwidth = vg.text_width(xname)
+        vg.draw_text(xname, "bauhaus", blue(255), scale,
+            xpos, self.h - scale)
+
+        # Drawing bars
+        var
+          bottomy = self.h - scale
         vg.beginPath()
-        vg.rect(xpos - 5, (self.h - ypos) - 25 - (parse_float(d[1])), tw + 5,
-            parse_float(d[1]))
+        vg.rect(xpos, bottomy, txtwidth, -(bottomy) * (yval / max_yval))
         vg.fillColor(red(255))
         vg.fill()
 
-        xpos += vg.text_width(d[0]) + 25
-        i.inc
-    inner
-
-template logbargraph*(inner: untyped, data: var seq[tuple[xname: string,
-    yname: string]]) =
-  canvas:
-    paint:
-      var
-        vg = self.window.vg
-        xpos = 25.0
-        ypos = self.h
-      for x in 1..5:
-        vg.draw_text($x, "bauhaus", blue(255), 25.0, xpos, ypos)
-        ypos -= 5
-    inner
-
+        xpos += txtwidth + scale
 
 template linegraph*(inner: untyped, data: var seq[tuple[name: string,
     specific: string]], ycount: float) =
@@ -461,6 +447,27 @@ template calendar*(inner: untyped, year, month: int, cb: proc(day, month, year: 
     inner
 
 testaid:
+  test "bargraph":
+    bargraph:
+      id graph
+      graph = self
+      json_array ( %* [
+        {"xname": "Apple", "yval": 49},
+        {"xname": "Grape", "yval": 29},
+        {"xname": "Orange", "yval": 299},
+        {"xname": "Pair", "yval": 2},
+        {"xname": "Pair", "yval": 2},
+        {"xname": "Pair", "yval": 2},
+        {"xname": "Pair", "yval": 140},
+        {"xname": "Pair", "yval": 2},
+        {"xname": "Pair", "yval": 2},
+      ])
+      minw 400
+      minh 300
+    do: 8
+    do: 20.0
+    graph.show()
+
   test "combobox":
     var customers = %* ["Sheridan", "Apples", "Meridan Hotel? Tavigo"]
     combobox:
@@ -512,17 +519,3 @@ testaid:
     do: 2011
     do: 3
     do: (proc(day, month, year: int) = discard)
-
-  test "logbargraph":
-    var data = @[
-      ("Monday", "55"),
-      ("Tuesday", "104"),
-      ("Wednesday", "35"),
-      ("Thursday", "65"),
-      ("Friday", "51"),
-      ("Saturday", "93")
-    ]
-    logbargraph:
-      size 500, 500
-      self.show()
-    do: data
