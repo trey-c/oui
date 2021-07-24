@@ -1,5 +1,3 @@
-# import oui
-
 import types
 when glfm_supported():
   import glfm/glfm
@@ -55,7 +53,6 @@ proc set_left*(node: UiNode, left: UiAnchor) =
     if float32(node.parent.left) == float32 left:
       node.x = node.padding_left
       return
-
   node.x = (float32 left) - node.padding_left
 
 proc right*(node: UiNode): UiAnchor =
@@ -76,7 +73,7 @@ proc set_right*(node: UiNode, right: UiAnchor) =
     node.x = (float32 right) - node.w - node.padding_right
 
 proc bottom*(node: UiNode): UiAnchor =
-  UIAnchor(node.y + node.h + node.padding_top)
+  UIAnchor(node.y + node.h + node.padding_bottom)
 
 proc set_bottom*(node: UiNode, bottom: UiAnchor) =
   if node.top_anchored:
@@ -111,14 +108,14 @@ proc trigger_update_attributes*(node: UiNode) =
   for ua in node.update_attributes:
     {.cast(gcsafe).}:
       ua(node, node.parent)
-  if node.kind == UiLayout:
-    for al in node.arrange_layout:
-      {.cast(gcsafe).}:
-        al(node, node.parent)
   for child in node:
     child.trigger_update_attributes()
     child.rootx = node.rootx + child.x
     child.rooty = node.rooty + child.y
+  if node.kind == UiLayout:
+    for al in node.arrange_layout:
+      {.cast(gcsafe).}:
+        al(node, node.parent)
 
 proc force_children_to_redraw(node: UiNode) =
   for n in node:
@@ -144,7 +141,8 @@ template handle_event_offset(window, child: UiNode, ev: var UiEvent) =
 
 proc request_focus*(node, target: UiNode) {.gcsafe, exportc.} =
   assert node.kind == UiWindow
-  node.handle.focus()
+  when glfw_supported():
+    node.handle.focus()
   if node.focused_node != nil:
     node.focused_node.has_focus = false
     {.cast(gcsafe).}:
@@ -215,8 +213,6 @@ proc queue_redraw*(target: UiNode = nil, update: bool = true) =
   target.force_parents_to_redraw()
   if target.kind != UiWindow:
     target.force_children_to_redraw()
-    var pos = target.real_root_coords()
-    target.move(float pos.x, float pos.y)
 
 proc resize*(node: UiNode, w, h: float32) =
   if node.kind == UiWindow:
@@ -227,7 +223,8 @@ proc resize*(node: UiNode, w, h: float32) =
         discard
     node.w = w
     node.h = h
-    node.queue_redraw()
+    echo "OUI: am i even here"
+    # node.queue_redraw()
 
 proc draw_children(node: UiNode, vg: NVGContext) =
   for child in node:
@@ -241,6 +238,11 @@ proc draw_children(node: UiNode, vg: NVGContext) =
     child.draw(vg)
     vg.reset_scissor()
     vg.restore()
+    vg.save()
+    for draw_post in child.draw_post:
+      {.cast(gcsafe).}:
+        draw_post(child, child.parent)
+    vg.restore()
 
 when glfw_supported():
   proc draw_opengl*(window: UiNode) {.exportc.} =
@@ -250,7 +252,6 @@ when glfw_supported():
     glClear(GL_COLOR_BUFFER_BIT or GL_STENCIL_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
     glCullFace(GL_BACK)
     glFrontFace(GL_CCW)
-    nvgluBindFramebuffer(window.buffer)
     window.vg.beginFrame(cfloat window.w, cfloat window.h, 1.0)
     window.trigger_update_attributes()
     window.draw(window.vg)
@@ -267,7 +268,7 @@ when glfw_supported():
         glDisable(GL_SCISSOR_TEST)
 
 proc draw(node: UiNode, vg: NVGContext) =
-  node.oldw = node.w
+  node.oldw = node.w 
   node.oldh = node.h
   vg.save()
   case node.kind:
@@ -315,10 +316,6 @@ proc draw(node: UiNode, vg: NVGContext) =
       discard
   vg.restore()
   node.draw_children(vg)
-  for draw_post in node.draw_post:
-    if draw_post.isNil() == false:
-      {.cast(gcsafe).}:
-        draw_post(node, node.parent)
   node.force_redraw = false
 
 proc handle_event*(window, node: UiNode, ev: var UiEvent) =
@@ -359,7 +356,6 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
           window.handle_event_offset(n, ev)
 
 proc hide*(node: UiNode) {.exportc.} =
-  ## The application will be terminated if all windows are hidden
   if node.kind == UiWindow:
     when glfw_supported():
       node.handle.hide()
@@ -485,17 +481,8 @@ proc ensure_minimum_size(node: UiNode) {.exportc.} =
               (a, b, lineh) = s.window.vg.textMetrics()
               txtw = s.window.vg.text_width(str)
             if txtw > s.minw:
-              s.minw = txtw
-            s.minh += lineh
-    elif s.children.len > 0:
-      s.minw = 0
-      s.minh = 0
-      for child in s:
-        s.minw += child.minw
-        s.minh += child.minh
-        if s.kind == UiLayout:
-          s.minw += s.spacing
-          s.minh += s.spacing
+              s.minw = txtw + (s.size * 2)
+            s.minh += lineh + s.size
 
     if s.w < s.minw and s.minw > 0:
       s.w = s.minw
@@ -524,7 +511,7 @@ proc init*(T: type UiNode, k: UiNodeKind): UiNode =
     index: 0,
     json_array: nil,
     children: @[],
-    color: rgb(255, 255, 255),
+    color: rgb(250, 250, 250),
     opacity: 1f,
     left_anchored: false,
     top_anchored: false,
@@ -541,18 +528,29 @@ proc init*(T: type UiNode, k: UiNodeKind): UiNode =
     result.focused_node = nil
     result.w = 100
     result.h = 100
-    result.color = rgb(228, 228, 228)
-
+    result.color = rgb(250, 250, 250)
   if result.kind == UiText:
     result.face = "bauhaus"
     result.size = 14
-    result.color = rgb(35, 35, 35)
+    result.color = rgb(21, 21, 21)
+  if result.kind == UiBox:
+    result.shadow.enabled = false
+    result.shadow.col1 = black(200)
+    result.shadow.col2 = black(0)
+    result.shadow.h_offset = 5
+    result.shadow.v_offset = 5
+    result.shadow.blur = 8
+    result.draw_post.add proc(s, p: UiNode) =
+      assert s.kind == UiBox
+      var vg = s.window.vg
+      if s.shadow.enabled:
+        vg.draw_box_shadow(s.x, s.y, s.w, s.h, s.radius, s.shadow.col1, 
+          s.shadow.col2, s.shadow.blur, s.shadow.h_offset, s.shadow.v_offset)
 
 when glfm_supported():
   proc NimMain() {.importc.}
   proc glfmMain*(display: ptr GLFMDisplay) {.exportc.} =
     NimMain()
-
     glfmSetDisplayConfig(display, GLFMRenderingAPIOpenGLES2,
                          GLFMColorFormatRGBA8888, GLFMDepthFormat16,
                          GLFMStencilFormat8, GLFMMultisampleNone)
@@ -578,7 +576,6 @@ when glfm_supported():
       glClear(GL_COLOR_BUFFER_BIT or GL_STENCIL_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
       glCullFace(GL_BACK)
       glFrontFace(GL_CCW)
-
       onlywindow.trigger_update_attributes()
       onlywindow.vg.beginFrame(cfloat onlywindow.w, cfloat onlywindow.h, 1.0)
       onlywindow.draw(onlywindow.vg)
@@ -595,7 +592,6 @@ proc show*(node: UiNode) =
           node.vg = nvgCreateContext({nifStencilStrokes})
           node.vg.load_font_by_name("bauhaus")
       node.resize(node.w, node.h)
-      discard
       when glfw_supported():
         node.handle.show()
         node.handle.shouldClose = false
@@ -603,8 +599,8 @@ proc show*(node: UiNode) =
       if node.parent == nil and node.window == nil:
         node.trigger_update_attributes()
         node.window = UiNode.init(UiWindow)
-        node.window.w = if node.w > 0: node.w else: 100
-        node.window.h = if node.h > 0: node.h else: 100
+        node.window.w = if node.w > 10: node.w else: 100
+        node.window.h = if node.h > 10: node.h else: 100
         node.window.add(node)
         node.update_attributes.add proc(s, p: UiNode) = s.fill p
         node.window.show()
@@ -646,7 +642,6 @@ proc set_j_array*(node: UiNode, jarray: JsonNode) {.exportc.} =
     s.children.set_len 0
   )
 
-
 testaid:
   var
     box1: UiNode
@@ -655,6 +650,22 @@ testaid:
   test "init":
     box1 = UiNode.init(UiBox)
     box2 = UiNode.init(UiBox)
+
+  test "anchors":
+    box1.w = 100
+    box1.h = 100
+    box2.w = 200
+    box2.h = 50
+
+    check float(box1.top()) == 0.0
+    check float(box2.bottom()) == 50.0
+    box1.set_top(box2.bottom())  
+    check float(box1.top()) == 50.0
+    check float(box1.bottom()) == 150.0
+    box2.padding_bottom = 20.0
+    box1.set_top(box2.bottom())
+    check float(box1.top()) == 70.0
+    check float(box1.bottom()) == 170.0
 
   test "contains":
     box1.w = 100
@@ -671,6 +682,7 @@ testaid:
     check box2.contains(50, 50) == false
     check box2.contains(105, 150) == false
     check box2.contains(105, 50)
+
   test "window":
     var win = UiNode.init(UiWindow)
     win.color = black(245)

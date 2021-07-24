@@ -22,9 +22,20 @@ import math
 import testaid
 import json
 
-template arrange_row_or_column*(axis, size: untyped, node: UiNode) =
-  var tmp = 0.0
+template arrange_row_or_column*(min1, min2, axis, size: untyped, node: UiNode) =
+  node.`min1` = 0
+  node.`min2` = 0
+  var
+    tmp = 0.0
+    i = 0
   for child in node:
+    i.inc
+    node.`min1` = if node.`min1` < child.`min1`: child.`min1` else: node.`min1`
+    if i == node.children.len:
+      node.`min2` += child.`min2`
+    else:
+      node.`min2` += child.`min2` + self.spacing
+
     child.`axis` = tmp
     tmp = tmp + child.`size` + node.spacing
 
@@ -220,13 +231,13 @@ template combobox*(inner: untyped, jarray: JsonNode, label: string) =
 template row*(inner: untyped) =
   layout:
     arrange_layout:
-      arrange_row_or_column(y, h, self)
+      arrange_row_or_column(minw, minh, y, h, self)
     inner
 
 template column*(inner: untyped) =
   layout:
     arrange_layout:
-      arrange_row_or_column(x, w, self)
+      arrange_row_or_column(minh, minw, x, w, self)
     inner
 
 template scrollable*(inner: untyped) =
@@ -349,9 +360,10 @@ template linegraph*(inner: untyped, data: var seq[tuple[name: string,
         if maxyname < parse_float(d[1]):
           maxyname = parse_float(d[1])
       var rycount = self.h / maxyname
+      
       for i in 0..ycount:
         ysc = round(ysc)
-        vg.draw_text($ysc, "bauhaus", blue(255), SCALE, 25, ypos)
+        vg.draw_text($ysc, "bauhaus", blue(255), SCALE, 3.0 * 25, ypos)
         ysc += maxyname / ycount
         ypos -= SCALE + 15
       for d in data:
@@ -498,17 +510,22 @@ testaid:
 
   test "row":
     row:
-      size 200, 500
-      for i in 1..3:
+      spacing 20
+      for i in 1..8:
         box:
-          size parent.w, 50
+          color green(255)
+          minw(40.0 * float(i))
+          minh(40.0)
       self.show()
+
   test "column":
     column:
-      size 500, 200
-      for i in 1..3:
+      spacing 20
+      for i in 1..8:
         box:
-          size 50, parent.h
+          color green(255)
+          minh(40.0 * float(i))
+          minw(40.0)
       self.show()
 
   test "calendar":

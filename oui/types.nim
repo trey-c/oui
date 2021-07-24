@@ -122,6 +122,8 @@ type
       radius*: float32
       border_width*: float32
       border_color*: Color
+      shadow*: tuple[enabled: bool, col1, col2: Color,
+        blur, h_offset, v_offset: float]
     of UiText:
       str*, face*: string
       size*: float32

@@ -75,21 +75,58 @@ public class OuiActivity extends Activity {
 }
 """
 
+var ANDROID_DL_URLS = (%* {
+  "cmdlinetools-win": "https://dl.google.com/android/repository/commandlinetools-win-7302050_latest.zip",
+  "cmdlinetools-linux": "https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip",
+  "jdk-windows": "https://builds.openlogic.com/downloadJDK/openlogic-openjdk/8u262-b10/openlogic-openjdk-8u262-b10-windows-x64.zip",
+  "jdk-linux": "https://builds.openlogic.com/downloadJDK/openlogic-openjdk/8u262-b10/openlogic-openjdk-8u262-b10-linux-x64.tar.gz"
+})
+
+var ANDROID_PATHS = (%* {
+  "sdk": ANDROID_SDK_LOCATION & "/sdk",
+  "jdk": ANDROID_SDK_LOCATION & "/jdk",
+  "cmdline-tools": ANDROID_SDK_LOCATION & "/cmdline-tools"
+})
+
+var ANDROID_TARGETS = (%* {
+  "armeabi": "arm-linux-androideabi"
+})
+
 proc exec_terminal(cmd: string): int =
   oui_log "> " & cmd
   result = execShellCmd(cmd)
 
 proc curl_cmdline_tools_and_jdk(loc: string) =
+  var 
+    sdk = normalized_path(ANDROID_PATHS["sdk"].get_str())
+    jdk = normalized_path(ANDROID_PATHS["jdk"].get_str())
   when defined windows:
     var
-      commands = @["curl -O https://dl.google.com/android/repository/android-ndk-r21e-windows-x86_64.zip",
-        "Powershell.exe -Command \"Expand-Archive -Path android-ndk-r21e-windows-x86_64.zip\"",
-        "rm -r android-ndk-r21e-windows-x86_64.zip"]
-  var
-    commands = @["curl -O https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip",
-      "unzip commandlinetools-linux-6609375_latest.zip -d cmdline-tools && rm commandlinetools-linux-6609375_latest.zip",
-      "curl -O https://builds.openlogic.com/downloadJDK/openlogic-openjdk/8u262-b10/openlogic-openjdk-8u262-b10-linux-x64.tar.gz",
-      "tar -xvzf openlogic-openjdk-8u262-b10-linux-x64.tar.gz --one-top-level=jdk --strip-components 1 && rm openlogic-openjdk-8u262-b10-linux-x64.tar.gz"]
+      cmdlinetools = ANDROID_DL_URLS["cmdlinetools-win"].get_str()
+      toolnames = cmdlinetools.split('/')
+      jdkwindows = ANDROID_DL_URLS["jdk-windows"].get_str()
+      jdknames = jdkwindows.split('/')
+      commands = @[
+        "curl -O " & cmdlinetools,
+        """Powershell.exe -Command Expand-Archive "$1" "$2"""" % 
+        [toolnames[toolnames.high], ANDROID_SDK_LOCATION],
+        "curl -O " & jdkwindows,
+        """Powershell.exe -Command Expand-Archive "$1" "$2"""" %
+        [jdknames[jdknames.high], jdk]
+      ]
+  when defined linux:
+    var
+      cmdlinetools = ANDROID_DL_URLS["cmdlinetools-linux"].get_str()
+      toolnames = cmdlinetools.split('/')
+      jdklinux = ANDROID_DL_URLS["jdk-linux"].get_str()
+      jdknames = jdklinux.split('/')
+      commands = @[
+        "curl -O " & cmdlinetools,
+        "unzip $1 -d $2 && rm $1" % [toolnames[toolnames.high], ANDROID_PATHS["cmdline-tools"].get_str()],
+        "curl -O " & jdklinux,
+        """tar -xvzf $1 --one-top-level=$2 --strip-components 1 && rm $1""" % 
+        [jdknames[jdknames.high], jdk]
+      ]
   for command in commands:
     echo "> " & command
     var process = start_process(command, "", [], nil, {poUsePath, poDaemon,
@@ -107,31 +144,40 @@ proc install_android_sdk(location: string) {.thread.} =
     oui_error "already installing android ndk"
     return
   if dir_exists(location):
-    oui_error "delete '" & location & "' and try again"
-    return
+    remove_dir(location)
+    oui_warning "deleting '" & location & "' and wil try again"
 
   installing_ndk = true
   create_dir(location)
   set_current_dir(location)
-  curl_cmdline_tools_and_jdk(location)
-  put_env("JAVA_HOME", location & "/jdk")
-  var sdkmanager = "cmdline-tools/tools/bin/sdkmanager --sdk_root=sdk --install \"platform-tools\" \"platforms;android-29\" \"build-tools;29.0.2\" \"ndk-bundle\""
-  discard exec_cmd_ex("gnome-terminal -- " & sdkmanager, {poEvalCommand})
+  {.cast(gcsafe).}:
+    curl_cmdline_tools_and_jdk(location)
+    when defined windows:
+      put_env("JAVA_HOME", normalized_path(ANDROID_PATHS["jdk"].get_str() & "/openlogic-openjdk-8u262-b10-win-64"))
+      var managerpath = normalized_path(ANDROID_PATHS["cmdline-tools"].get_str() & "/bin/sdkmanager.bat")
+    when defined linux:
+      put_env("JAVA_HOME", normalized_path(ANDROID_PATHS["jdk"].get_str()))
+      var managerpath = normalized_path(ANDROID_PATHS["cmdline-tools"].get_str() & "/tools/bin/sdkmanager")
+    var sdkmanager = managerpath & " --sdk_root=" & normalized_path(ANDROID_PATHS["sdk"].get_str()) & " --install \"platform-tools\" \"platforms;android-29\" \"build-tools;29.0.2\" \"ndk-bundle\""
+
+  discard exec_terminal(sdkmanager)
   oui_log "done installing ndk"
   installing_ndk = false
 
-proc buildlib(toolchain, target, file: string): int =
+proc buildlib(toolchain, target, file, output: string): int =
   let
-    clangpath = "--arm.android.clang.path=\"" & toolchain & "/bin" & "\""
+    clangpath = "--arm.android.clang.path=\"" & normalized_path(toolchain &
+        "/bin\"")
     clangldexe = "--arm.android.clang.exe=\"clang\" --arm.android.clang.linkerexe=\"ld\" " & clangpath
-    passc = "--passC=\"--target=" & target & "$settings{sdk_version}.get_int() & \""
-    passl = "--passL=\"-L" & toolchain & "/sysroot/usr/lib/" & target &
-        "/" & "$settings{sdk_version}.get_int()" & " -L" & toolchain &
-            "/lib/gcc/" & target &
-            "/4.9.x " & "-L" & toolchain & "/sysroot/usr/lib/" & target & " -lgcc -llog -lm -lc -lEGL -lGLESv2 -landroid\""
-    nimcmd = "nim c " & clangldexe & " " & passc & " " & passl & " --app:lib --cpu:arm --os:android -d:androidNDK -d:nvgGLES2 --noMain:on --cc:clang "
-  oui_log "> " & nimcmd & file
-  result = exec_terminal(nimcmd & file)
+    passc = "--passC=\"--target=arm-linux-androideabi29" & "\""
+    passl = "--passL=\"-L" & normalized_path(toolchain & "/lib/gcc/" &
+        target & "/4.9.x") & " -L" & normalized_path(toolchain &
+                "/sysroot/usr/lib/arm-linux-androideabi/29") & " -L" &
+                    normalized_path(toolchain &
+                        "/sysroot/usr/lib/arm-linux-androideabi") & " -lgcc -llog -lm -lc -lEGL -lGLESv2 -landroid\""
+    nimcmd = "nim c " & clangldexe & " " & passc & " " & passl & " --app:lib --cpu:arm --os:android -d:androidNDK -d:nvgGLES2 --noMain:on --cc:clang -o:" & output & " " & file
+  oui_log "> " & nimcmd
+  result = exec_terminal(nimcmd)
 
 proc try_verifying_androidsdk(location: string): string =
   var sdk_requirements = @[
@@ -168,43 +214,48 @@ proc generate_output_structure(output: string) =
     discard exists_or_create_dir(normalized_path(folder))
   write_file("AndroidManifest.xml", ANDROID_MANIFEST_XML)
   write_file(normalized_path("res/values/strings.xml"), RES_VALUE_STRINGS_XML)
-  write_file(normalized_path("net/ouiapp/OuiActivity.java"), NET_OUIAPP_OUI_ACTIVITY_JAVA)
+  write_file(normalized_path("net/ouiapp/OuiActivity.java"),
+    NET_OUIAPP_OUI_ACTIVITY_JAVA)
+  copy_dir(get_home_dir() & ".oui/fonts", "assets/font")
 
 proc zip_and_sign_apk(jdk, platform, build_tools,
-  androidjar, keystore_loc: string) =
+  androidjar, keystore_loc, output: string) =
   let
     zip_apk_cmds = @[
-      build_tools & normalized_path("/aapt2") &
+      normalized_path(build_tools & "/aapt2$1") &
           " compile --dir res -o resources.zip",
-      build_tools & normalized_path("/aapt2") &
-          " -o output.apk resources.zip -I " & androidjar &
+      normalized_path(build_tools & "/aapt2$1") &
+          " link -o output.apk resources.zip -I " & androidjar &
       "--manifest AndroidManifest.xml -A assets -v",
-      "zip output.apk " & normalized_path("lib/armeabi/libouiapp.so"),
-      "javac -bootclasspath " & jdk & normalized_path("/jre/lib/rt.jar") &
+      "zip output.apk " & normalized_path("./lib/armeabi/libouiapp.so"),
+      normalized_path(jdk & "/bin/javac$1") & " -bootclasspath " & jdk & normalized_path("/jre/lib/rt.jar") &
         " -classpath " & androidjar & " -d obj -sourcepath java:gen " &
-            normalized_path("net/ouiapp/OuiActivity.java") &
+      normalized_path("net/ouiapp/OuiActivity.java") &
                 " -source 1.7 -target 1.7",
-      build_tools & normalized_path("/dx") & " --dex --output=classes.dex obj",
-      build_tools & normalized_path("/aapt") & " a output.apk classes.dex",
-      build_tools & normalized_path("/zipalign") & " 4 output.apk output-aligned.apk"
+      normalized_path(build_tools & "/dx$2") &
+          " --dex --output=classes.dex obj",
+      normalized_path(build_tools & "/aapt$1") & " a output.apk classes.dex",
+      normalized_path(build_tools & "/zipalign$1") & " 4 output.apk output-aligned.apk"
     ]
   for cmd in zip_apk_cmds:
-    if exec_terminal(cmd) != 0:
-      break
+    when defined windows:
+      if exec_terminal(cmd % [".exe", ".bat"]) != 0: break
+    when defined linux:
+      if exec_terminal(cmd % ["", ""]) != 0: break
   if not file_exists(keystore_loc):
-    if exec_terminal("keytool -genkey -v -keystore " & keystore_loc &
+    if exec_terminal(normalized_path(jdk & "/bin/keytool") & " -genkey -v -keystore " & keystore_loc &
         " -alias androiddebugkey -storepass android -keypass android -keyalg RSA -validity 14000") != 1:
       return
-  discard exec_terminal(build_tools & normalized_path("/apksigner") &
+  discard exec_terminal( normalized_path(build_tools & "/apksigner") &
       " sign --ks " & keystore_loc & " --ks-pass pass:android --out final-output.apk output-aligned.apk")
 
 proc buildapk(jdk, build_tools, platform, ndk, output: string) =
-  put_env("JAVA_HOME", jdk & "/jre")
-  put_env("PATH", get_env("PATH") & ":" & jdk & "/bin")
+  put_env("JAVA_HOME", normalized_path(jdk))
+  put_env("PATH", get_env("PATH") & ":" & normalized_path(jdk & "/bin"))
   let
     androidjar = normalized_path(platform & "/android.jar ")
     keystore_loc = normalized_path(get_home_dir() & ".android/debug.keystore")
-  zip_and_sign_apk(jdk, platform, build_tools, androidjar, keystore_loc)
+  zip_and_sign_apk(jdk, platform, build_tools, androidjar, keystore_loc, "F:\\oui\\oui\\" & output)
   remove_dir("gen")
   remove_dir("obj")
   remove_file("output-aligned.apk")
@@ -212,18 +263,23 @@ proc buildapk(jdk, build_tools, platform, ndk, output: string) =
 
 proc build(sdk, output: string, args: JsonNode, apk: bool) =
   generate_output_structure(output)
+  when defined windows:
+    let host = "windows-x86_64"
+    let jdk = ANDROID_PATHS["jdk"].get_str() & "/openlogic-openjdk-8u262-b10-win-64"
+  when defined linux:
+    let host = "linux-x86_64"
+    let jdk = ANDROID_PATHS["jdk"].get_str()
   let
-    ndk = normalized_path(sdk & "/sdk/ndk-bundle")
-    platform = normalized_path(sdk & "/sdk/platforms/android-" & "$settings[sdk_version].get_int()")
-    toolchain = normalized_path(ndk & "/toolchains/llvm/prebuilt/" & "settings{host}.get_str()")
-    jdk = normalized_path(sdk & "/jdk")
-    build_tools = normalized_path(sdk & "sdk/build-tools/29.0.2")
-    target = args["abi"].get_str()
+    ndk = sdk & "/sdk/ndk-bundle"
+    platform =  ANDROID_PATHS["sdk"].get_str() & "/platforms/android-29"
+    toolchain = ndk & "/toolchains/llvm/prebuilt/" & host
+    build_tools = sdk & "/sdk/build-tools/29.0.2"
+    target = ANDROID_TARGETS[args["abi"].get_str()].get_str()
     nimfile = args["nimfile"].get_str()
-  discard buildlib(toolchain, target, nimfile)
+  discard buildlib(toolchain, target, nimfile, "lib/armeabi/libouiapp.so")
   if apk:
     buildapk(jdk, build_tools, platform, ndk,
-      ".generated")
+      "lib/armeabi/libouiapp.so")
 
 proc grab_args(): JsonNode =
   result = parseJson("{}")
@@ -257,5 +313,5 @@ when is_main_module and not defined(testaid):
     else:
       styled_echo fgRed, "'" & param_str(1) & "' is not a command"
   main()
-# oui/deployandroid setup sdk:29 jdk:8
+# oui/deployandroid setup sdk:29
 # oui/deployandroid buildlib abi:armeabi nimfile:/home/trey/projects/mplsa/mplsa.nim

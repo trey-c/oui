@@ -112,7 +112,8 @@ template delegate*(inner: untyped) =
   self.delegate = proc(tmp_json_array: JsonNode, tmpindex: int): UiNode =
     var
       index {.inject.} = tmpindex
-      jobj {.inject.} = tmp_json_array[index]
+      jobj {.inject.} = if tmp_json_array.is_nil(): new_j_object() 
+        else: tmp_json_array[index]
     static:
       tmpparents = parents
       parents.set_len 0
@@ -261,6 +262,15 @@ template minh*(mh: float32) =
 
 template resizable*(r: bool) =
   self.resizable = r
+
+proc shadow*(enabled: bool, blur = 8.0, h_offset = 5.0, 
+    v_offset: float = 5.0, col1 = black(200), col2: Color = black(0)) =
+  self.shadow.enabled = enabled
+  self.shadow.h_offset = h_offset
+  self.shadow.v_offset = v_offset
+  self.shadow.blur = blur
+  self.shadow.col1 = col1
+  self.shadow.col2 = col2
 
 template render*(inner: untyped) =
   self.render.insert((proc(s, p: UiNode) {.closure.} =
@@ -487,7 +497,7 @@ testaid:
       self.trigger_update_attributes()
       check self.children.len == 2
       check self[0].id == "testbox"
-      check self[0].w == 20
+      check self[0].w == 40
       check self[0].h == 20
 
   test "delegate":
@@ -504,9 +514,9 @@ testaid:
       testlayout.add_delegate(2)
       check testlayout.children.len == 3
 
-      check testlayout[0].index == 0
-      check testlayout[1].index == 1
-      check testlayout[2].index == 2
+    check testlayout[0].index == 0
+    check testlayout[1].index == 1
+    check testlayout[2].index == 2
 
   test "min sizes":
     box:

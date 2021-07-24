@@ -16,144 +16,20 @@
 import oui
 
 window:
-  id app
-  color rgb(10, 100, 10)
-  color "#324344"
-
-  size 899, 900
-  var txtstr = ""
-  var txtstr1 = ""
-  var txtstr2 = ""
-  var txtstr3 = ""
-  var txtstr4 = ""
-
-  column:
-    spacing 5
+  size 100, 100
+  text:
+    str "Ocicat Ui"
+    size 32
     update:
-      fill parent
-    row:
-      spacing 20
-      update:
-        w 100
-        h parent.h
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr1
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr2
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr3
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr4
-      do: "Username"
+      bottom parent.bottom
+      hcenter parent
 
-    row:
-      spacing 20
-      update:
-        w 100
-        h parent.h
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr1
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr2
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr3
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr4
-      do: "Username"
+  box:
+    color green(255)
+    shadow true, 20, 16, 16, black(240)
+    update:
+      w parent.w - 200
+      h 200
+      center parent
 
-    row:
-      spacing 20
-      update:
-        w 100
-        h parent.h
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr1
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr2
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr3
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr4
-      do: "Username"
-
-    row:
-      spacing 20
-      update:
-        w 100
-        h parent.h
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr1
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr2
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr3
-      do: "Username"
-      textbox:
-        update:
-          size 100, 34
-      do: txtstr4
-      do: "Username"
-app.show()
-
-
+  self.show()

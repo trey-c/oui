@@ -38,19 +38,14 @@ proc draw_text*(vg: NVGContext, text, face: string, color: Color, size,
   vg.textAlign(haLeft, vaTop)
   discard vg.text(x, y, text)
 
-proc draw_rounded_rectangle*(vg: NVGContext, color: Color, opacity, x, y, w,
-    h, rad, border_width: float32, border_color: Color) =
+proc draw_box_shadow*(vg: NVGContext, x, y, w, h, rad: float, col1 = black(80), 
+    col2: Color = black(0), blur = 6.0, h_offset = 4.0, v_offset: float = 4.0) =
   vg.beginPath()
+  vg.rect(x + h_offset - blur, y + v_offset - blur, w + 2 * blur, h + 2 * blur)
   vg.roundedRect(x, y, w, h, rad)
-  vg.fillColor(color)
+  vg.pathWinding(sHole)
+  vg.fillPaint(vg.boxGradient(x, y, w ,h, rad, blur, col1, col2))
   vg.fill()
-
-  if border_width < 0:
-    return
-  vg.beginPath()
-  vg.roundedRect(x, y, w, h, rad)
-  vg.strokeColor(border_color)
-  vg.stroke()
 
 proc draw_image*(vg: NVGContext, path: string, w, h: float) =
   # vg.beginPath()
