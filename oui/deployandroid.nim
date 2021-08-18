@@ -219,7 +219,8 @@ proc generate_output_structure(output: string) =
   copy_dir(get_home_dir() & ".oui/fonts", "assets/font")
 
 proc zip_and_sign_apk(jdk, platform, build_tools,
-  androidjar, keystore_loc, output: string) =
+  androidjar, keystore_loc, output, assets: string) =
+  copy_dir(assets, "assets/")
   let
     zip_apk_cmds = @[
       normalized_path(build_tools & "/aapt2$1") &
@@ -249,13 +250,13 @@ proc zip_and_sign_apk(jdk, platform, build_tools,
   discard exec_terminal( normalized_path(build_tools & "/apksigner") &
       " sign --ks " & keystore_loc & " --ks-pass pass:android --out final-output.apk output-aligned.apk")
 
-proc buildapk(jdk, build_tools, platform, ndk, output: string) =
+proc buildapk(jdk, build_tools, platform, ndk, output, assets: string) =
   put_env("JAVA_HOME", normalized_path(jdk))
   put_env("PATH", get_env("PATH") & ":" & normalized_path(jdk & "/bin"))
   let
     androidjar = normalized_path(platform & "/android.jar ")
     keystore_loc = normalized_path(get_home_dir() & ".android/debug.keystore")
-  zip_and_sign_apk(jdk, platform, build_tools, androidjar, keystore_loc, "F:\\oui\\oui\\" & output)
+  zip_and_sign_apk(jdk, platform, build_tools, androidjar, keystore_loc, "F:\\oui\\oui\\" & output, assets)
   remove_dir("gen")
   remove_dir("obj")
   remove_file("output-aligned.apk")
@@ -276,10 +277,11 @@ proc build(sdk, output: string, args: JsonNode, apk: bool) =
     build_tools = sdk & "/sdk/build-tools/29.0.2"
     target = ANDROID_TARGETS[args["abi"].get_str()].get_str()
     nimfile = args["nimfile"].get_str()
+    assets = args["assets"].get_str()
   discard buildlib(toolchain, target, nimfile, "lib/armeabi/libouiapp.so")
   if apk:
     buildapk(jdk, build_tools, platform, ndk,
-      "lib/armeabi/libouiapp.so")
+      "lib/armeabi/libouiapp.so", assets)
 
 proc grab_args(): JsonNode =
   result = parseJson("{}")
