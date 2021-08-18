@@ -341,9 +341,10 @@ template bargraph*(inner: untyped, num_of_ys: int = 4, scale: float = 25.0) =
 
         xpos += txtwidth + scale
 
-template linegraph*(inner: untyped, data: var seq[tuple[name: string,
-    specific: string]], ycount: float) =
+template linegraph*(inner: untyped, ycount: float) =
   canvas:
+    inner
+    assert not self.json_array.is_nil()
     paint:
       const SCALE = 15
       var
@@ -355,10 +356,10 @@ template linegraph*(inner: untyped, data: var seq[tuple[name: string,
         maxyname = 0.0
         total = 0.0
         dpoint = 0.0
-      for d in data:
-        total += parse_float(d[1])
-        if maxyname < parse_float(d[1]):
-          maxyname = parse_float(d[1])
+      for jobj in self.json_array:
+        total += jobj["yval"].get_float()
+        if maxyname < jobj["yval"].get_float():
+          maxyname = jobj["yval"].get_float()
       var rycount = self.h / maxyname
       
       for i in 0..ycount:
@@ -366,26 +367,24 @@ template linegraph*(inner: untyped, data: var seq[tuple[name: string,
         vg.draw_text($ysc, "bauhaus", blue(255), SCALE, 3.0 * 25, ypos)
         ysc += maxyname / ycount
         ypos -= SCALE + 15
-      for d in data:
-        if i == 0:
-          xpos += vg.text_width(data[0][1])
-        vg.draw_text(d[0], "bauhaus", blue(255), SCALE, xpos, self.h - SCALE - 5)
+      for jobj in self.json_array:
+        vg.draw_text(jobj["xname"].get_str(), "bauhaus", blue(255), SCALE, xpos, self.h - SCALE - 5)
         # Data Points
-        var tw = vg.text_width(d[0])
+        var tw = vg.text_width(jobj["xname"].get_str())
         vg.beginPath()
-        vg.circle(xpos - 5, total - parse_float(d[1]), 4)
+        vg.circle(xpos - 5, total - jobj["yval"].get_float(), 4)
         vg.fillColor(red(255))
         vg.fill()
         if i < (ycount - 1):
           #dpoint is a variable name for "data point"
-          dpoint = total - parse_float(d[1])
+          dpoint = total - jobj["yval"].get_float()
           vg.beginPath()
           vg.moveTo(xpos - 5, dpoint)
           vg.strokeColor(rgb(0, 160, 192))
 
-          xpos += vg.text_width(d[0]) + 25
+          xpos += vg.text_width(jobj["xname"].get_str()) + 25
 
-          vg.lineTo(xpos - 5, total - parse_float(data[i + 1][1]))
+          vg.lineTo(xpos - 5, total - self.json_array[i + 1]["yval"].get_float())
           vg.strokeWidth(3.0)
           vg.stroke()
         i.inc
@@ -461,8 +460,6 @@ template calendar*(inner: untyped, year, month: int, cb: proc(day, month, year: 
 testaid:
   test "bargraph":
     bargraph:
-      id graph
-      graph = self
       json_array ( %* [
         {"xname": "Apple", "yval": 49},
         {"xname": "Grape", "yval": 29},
@@ -476,9 +473,21 @@ testaid:
       ])
       minw 400
       minh 300
+      self.show()
     do: 8
     do: 20.0
-    graph.show()
+
+  test "linegraph":
+    linegraph:
+      json_array ( %* [
+        {"xname": "Apple", "yval": 49},
+        {"xname": "Grape", "yval": 29},
+        {"xname": "Orange", "yval": 299},
+      ])
+      minw 400
+      minh 300
+      self.show()
+    do: 8
 
   test "combobox":
     var customers = %* ["Sheridan", "Apples", "Meridan Hotel? Tavigo"]
