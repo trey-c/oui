@@ -209,6 +209,7 @@ proc generate_output_structure(output: string) =
   if dir_exists(output):
     remove_dir(output)
   discard exists_or_create_dir(output)
+  var back = getCurrentDir()
   set_current_dir(output)
   for folder in @["net", "net/ouiapp", "res", "res/values", "assets", "gen", "obj"]:
     discard exists_or_create_dir(normalized_path(folder))
@@ -217,6 +218,8 @@ proc generate_output_structure(output: string) =
   write_file(normalized_path("net/ouiapp/OuiActivity.java"),
     NET_OUIAPP_OUI_ACTIVITY_JAVA)
   copy_dir(get_home_dir() & ".oui/fonts", "assets/font")
+  set_current_dir(back)
+  echo getCurrentDir()
 
 proc zip_and_sign_apk(jdk, platform, build_tools,
   androidjar, keystore_loc, output, assets: string) =
@@ -315,5 +318,3 @@ when is_main_module and not defined(testaid):
     else:
       styled_echo fgRed, "'" & param_str(1) & "' is not a command"
   main()
-# oui/deployandroid setup sdk:29
-# oui/deployandroid buildlib abi:armeabi nimfile:/home/trey/projects/mplsa/mplsa.nim
