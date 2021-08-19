@@ -209,8 +209,6 @@ proc generate_output_structure(output: string) =
   if dir_exists(output):
     remove_dir(output)
   discard exists_or_create_dir(output)
-  var back = getCurrentDir()
-  set_current_dir(output)
   for folder in @["net", "net/ouiapp", "res", "res/values", "assets", "gen", "obj"]:
     discard exists_or_create_dir(normalized_path(folder))
   write_file("AndroidManifest.xml", ANDROID_MANIFEST_XML)
@@ -219,11 +217,13 @@ proc generate_output_structure(output: string) =
     NET_OUIAPP_OUI_ACTIVITY_JAVA)
   copy_dir(get_home_dir() & ".oui/fonts", "assets/font")
   set_current_dir(back)
-  echo getCurrentDir()
 
 proc zip_and_sign_apk(jdk, platform, build_tools,
   androidjar, keystore_loc, output, assets: string) =
-  copy_dir(assets, "assets/")
+  copy_dir(assets, output & "/assets/")
+
+  var back = getCurrentDir()
+  set_current_dir(output)
   let
     zip_apk_cmds = @[
       normalized_path(build_tools & "/aapt2$1") &
@@ -252,6 +252,7 @@ proc zip_and_sign_apk(jdk, platform, build_tools,
       return
   discard exec_terminal( normalized_path(build_tools & "/apksigner") &
       " sign --ks " & keystore_loc & " --ks-pass pass:android --out final-output.apk output-aligned.apk")
+  set_current_dir(back)
 
 proc buildapk(jdk, build_tools, platform, ndk, output, assets: string) =
   put_env("JAVA_HOME", normalized_path(jdk))

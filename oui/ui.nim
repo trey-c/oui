@@ -273,7 +273,7 @@ template scrollable*(inner: untyped) =
 template list*(inner: untyped) =
   scrollable:
     arrange_layout:
-      arrange_row_or_column(y, h, self)
+      arrange_row_or_column(minw, minh, y, h, self)
     inner
 
 template popup*(inner: untyped) =
