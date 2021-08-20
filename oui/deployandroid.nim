@@ -175,7 +175,7 @@ proc buildlib(toolchain, target, file, output: string): int =
                 "/sysroot/usr/lib/arm-linux-androideabi/29") & " -L" &
                     normalized_path(toolchain &
                         "/sysroot/usr/lib/arm-linux-androideabi") & " -lgcc -llog -lm -lc -lEGL -lGLESv2 -landroid\""
-    nimcmd = "nim c " & clangldexe & " " & passc & " " & passl & " --app:lib --cpu:arm --os:android -d:androidNDK -d:nvgGLES2 --noMain:on --cc:clang -o:" & output & " " & file
+    nimcmd = "nim c " & clangldexe & " " & passc & " " & passl & " --app:lib --cpu:arm --os:android -d:androidNDK -d:nvgGLES2 --noMain:on --cc:clang -o:" & normalized_path(output) & " " & file
   oui_log "> " & nimcmd
   result = exec_terminal(nimcmd)
 
@@ -209,6 +209,8 @@ proc generate_output_structure(output: string) =
   if dir_exists(output):
     remove_dir(output)
   discard exists_or_create_dir(output)
+  var back = getCurrentDir()
+  set_current_dir(output)
   for folder in @["net", "net/ouiapp", "res", "res/values", "assets", "gen", "obj"]:
     discard exists_or_create_dir(normalized_path(folder))
   write_file("AndroidManifest.xml", ANDROID_MANIFEST_XML)
@@ -220,7 +222,7 @@ proc generate_output_structure(output: string) =
 
 proc zip_and_sign_apk(jdk, platform, build_tools,
   androidjar, keystore_loc, output, assets: string) =
-  copy_dir(assets, output & "/assets/")
+  # copy_dir(assets, output & "/assets/")
 
   var back = getCurrentDir()
   set_current_dir(output)
@@ -260,7 +262,7 @@ proc buildapk(jdk, build_tools, platform, ndk, output, assets: string) =
   let
     androidjar = normalized_path(platform & "/android.jar ")
     keystore_loc = normalized_path(get_home_dir() & ".android/debug.keystore")
-  zip_and_sign_apk(jdk, platform, build_tools, androidjar, keystore_loc, "F:\\oui\\oui\\" & output, assets)
+  zip_and_sign_apk(jdk, platform, build_tools, androidjar, keystore_loc, output, assets)
   remove_dir("gen")
   remove_dir("obj")
   remove_file("output-aligned.apk")
@@ -282,10 +284,10 @@ proc build(sdk, output: string, args: JsonNode, apk: bool) =
     target = ANDROID_TARGETS[args["abi"].get_str()].get_str()
     nimfile = args["nimfile"].get_str()
     assets = args["assets"].get_str()
-  discard buildlib(toolchain, target, nimfile, "lib/armeabi/libouiapp.so")
+  discard buildlib(toolchain, target, nimfile, output & "/lib/armeabi/libouiapp.so")
   if apk:
     buildapk(jdk, build_tools, platform, ndk,
-      "lib/armeabi/libouiapp.so", assets)
+      output, assets)
 
 proc grab_args(): JsonNode =
   result = parseJson("{}")
