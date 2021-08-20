@@ -93,6 +93,7 @@ type
     padding_top*, padding_left*, padding_bottom*, padding_right*: float32
     margin_top*, margin_left*, margin_bottom*, margin_right*: float32
     json_array*: JsonNode
+    delegate*: proc(table: JsonNode; index: int): UiNode
     visible*, force_redraw*, animating*: bool
     hovered*, has_focus*, accepts_focus*: bool
     update_attributes*: seq[UpdateAttributesCb]
@@ -106,6 +107,7 @@ type
     left_anchored*, top_anchored*: bool
     oldw*, oldh*: float32
     gradient*: tuple[sx, sy, ex, ey: float; active: bool; color1, color2: Color]
+    radius*: float32
     case kind*: UiNodeKind
     of UiWindow:
       when glfw_supported():
@@ -119,7 +121,6 @@ type
       cursor_pos*: tuple[x, y: float]
       gl_nodes*: seq[UiNode]
     of UiBox:
-      radius*: float32
       border_width*: float32
       border_color*: Color
       shadow*: tuple[enabled: bool, col1, col2: Color,
@@ -132,7 +133,6 @@ type
       paint*: seq[PaintCb]
     of UiLayout:
       spacing*: float32
-      delegate*: proc(table: JsonNode; index: int): UiNode
       arrange_layout*: seq[ArrangeLayoutCb]
     of UiImage:
       src*: string

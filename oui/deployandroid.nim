@@ -222,7 +222,7 @@ proc generate_output_structure(output: string) =
 
 proc zip_and_sign_apk(jdk, platform, build_tools,
   androidjar, keystore_loc, output, assets: string) =
-  # copy_dir(assets, output & "/assets/")
+  copy_dir(assets, output & "/assets")
 
   var back = getCurrentDir()
   set_current_dir(output)

@@ -48,11 +48,21 @@ proc draw_box_shadow*(vg: NVGContext, x, y, w, h, rad: float, col1 = black(80),
   vg.fill()
 
 proc draw_image*(vg: NVGContext, path: string, w, h: float) =
-  # vg.beginPath()
-  # var img = vg.image_pattern(0, 0, 50, 50, 0, vg.createImage(path), 1)
-  # vg.rect(0, 0, 50, 50)
-  # vg.fill_paint(img)
-  # vg.fill()
+  vg.beginPath()
+  when not defined android:
+    var rfile = vg.createImage(path)
+    if rfile == NoImage:
+      echo "Could not load ."
+  when defined android:
+    var fileasset = open(glfmAndroidGetActivity().asset_manager, path, AASSET_MODE_BUFFER)
+    var buf = cast[ptr UncheckedArray[byte]](fileasset.getBuffer())
+    var rfile = vg.createImageMem({ifNearest}, toOpenArray[byte](buf, 0,
+        fileasset.getLength()))
+
+  var img = vg.image_pattern(0, 0, w, h, 0, rfile, 1)
+  vg.rect(0, 0, w, h)
+  vg.fill_paint(img)
+  vg.fill()
   discard
 
 proc str_to_camel_case*(
@@ -91,9 +101,8 @@ proc load_font_by_name*(vg: NVGContext, name: string) {.exportc.} =
   when defined windows:
     var loc = get_home_dir() & ".oui\\fonts\\" & name & ".ttf"
   when defined android:
-    var loc = "font/" & name & ".ttf"
-    var fileasset = open(glfmAndroidGetActivity().asset_manager, "font/" &
-        name & ".ttf", AASSET_MODE_BUFFER)
+    var loc = "font\\" & name & ".ttf"
+    var fileasset = open(glfmAndroidGetActivity().asset_manager, loc, AASSET_MODE_BUFFER)
     try:
       var buf = cast[ptr UncheckedArray[byte]](fileasset.getBuffer())
       var font = vg.createFontMem(name, toOpenArray[byte](buf, 0,
