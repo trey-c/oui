@@ -6,16 +6,17 @@ when glfm_supported():
   import android/view/[window_manager, display]
   import android/app/activity
   import opengl
+  import jnim
 
 when glfw_supported():
   import glfw
   import private/gladgl
 
 import utils
-import json
+import json, tables
 import nanovg
 import testaid
-import options, colors, unicode, os, strutils
+import options, unicode, os, strutils
 import asyncdispatch
 
 proc draw(node: UiNode, vg: NVGContext)
@@ -26,6 +27,7 @@ var
   prev_parent* {.threadvar.}: UiNode
   self* {.threadvar.}: UiNode
   event*: UiEvent
+  ui_theme* = new_ordered_table[string, Color]()
 
 when glfw_supported():
   var windows*: seq[UiNode] = @[]
@@ -223,7 +225,6 @@ proc resize*(node: UiNode, w, h: float32) =
         discard
     node.w = w
     node.h = h
-    echo "OUI: am i even here"
     # node.queue_redraw()
 
 proc draw_children(node: UiNode, vg: NVGContext) =
@@ -380,7 +381,6 @@ when glfw_supported():
           win.draw_opengl()
           glfw.swapBuffers(win.handle)
       glfw.waitEvents()
-      # poll()
 
   var glfw_not_inited: bool = true
   proc create_glfw_window(window: UiNode): glfw.Window =
@@ -492,6 +492,9 @@ proc ensure_minimum_size(node: UiNode) {.exportc.} =
       if s.kind == UiWindow:
         s.handle.set_size_limits(int32 s.minw, int32 s.minh, -1, -1)
 
+ui_theme["window.color"] = rgb(255, 255, 255)
+ui_theme["text.color"] = rgb(11, 11, 11)
+
 proc init*(T: type UiNode, k: UiNodeKind): UiNode =
   result = UiNode(kind: k,
     id: "noid",
@@ -528,11 +531,11 @@ proc init*(T: type UiNode, k: UiNodeKind): UiNode =
     result.focused_node = nil
     result.w = 100
     result.h = 100
-    result.color = rgb(250, 250, 250)
+    result.color = ui_theme["window.color"]
   if result.kind == UiText:
     result.face = "bauhaus"
     result.size = 14
-    result.color = rgb(21, 21, 21)
+    result.color = ui_theme["text.color"]
   if result.kind == UiBox:
     result.shadow.enabled = false
     result.shadow.col1 = black(200)
@@ -566,6 +569,8 @@ when glfm_supported():
       onlywindow.resize(float width, float height)
     glfmSetTouchFunc display, proc(display: ptr GLFMDisplay; touch: cint; phase: GLFMTouchPhase; x: cdouble;
                y: cdouble): bool =
+      var act = Activity.fromJObject(cast[jobject](glfmAndroidGetActivity().instance))
+      # var wm = act.getWindowManager()
       var e = UiEvent(kind: UiTouch, phase: phase, x: float (x * 1.5),
           y: float (y * 2.0))
       onlywindow.handle_event(onlywindow, e)
@@ -620,6 +625,8 @@ proc show*(node: UiNode) =
         onlywindow = node
 
 proc add_delegate*(node: UiNode, index: int) {.exportc.} =
+  if node.delegate.is_nil():
+    return
   var delegate = node.delegate(node.json_array, index)
   delegate.json_array = node.json_array
   delegate.index = index
@@ -685,7 +692,6 @@ testaid:
 
   test "window":
     var win = UiNode.init(UiWindow)
-    win.color = black(245)
     box1.color = red(255)
     box2.color = blue(255)
     box1.update_attributes.add proc(s, p: UiNode) =

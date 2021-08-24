@@ -1,4 +1,4 @@
-import tables, os, strutils, terminal, osproc, macros
+import tables, os, strutils, terminal
 
 template testaid*(inner: untyped): untyped =
   when is_main_module and defined(testaid):

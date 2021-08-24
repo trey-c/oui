@@ -1,9 +1,5 @@
-import oui
-
-import nanovg
-
-import osproc, os, threadpool, streams, json, strutils
-import testaid
+import osproc, os, json, strutils
+import utils
 
 when defined linux:
   const ANDROID_SDK_LOCATION = get_home_dir() & ".oui/androidndk"
@@ -93,12 +89,11 @@ var ANDROID_TARGETS = (%* {
 })
 
 proc exec_terminal(cmd: string): int =
-  oui_log "> " & cmd
+  echo "> " & cmd
   result = execShellCmd(cmd)
 
 proc curl_cmdline_tools_and_jdk(loc: string) =
   var 
-    sdk = normalized_path(ANDROID_PATHS["sdk"].get_str())
     jdk = normalized_path(ANDROID_PATHS["jdk"].get_str())
   when defined windows:
     var

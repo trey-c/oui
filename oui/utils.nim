@@ -65,20 +65,6 @@ proc draw_image*(vg: NVGContext, path: string, w, h: float) =
   vg.fill()
   discard
 
-proc str_to_camel_case*(
-  str: string): string =
-  var go_up = false
-  for c in str:
-    if go_up:
-      result.add(
-          c.to_upper_ascii())
-      go_up = false
-      continue
-    if c == '_':
-      go_up = true
-    else:
-      result.add(c)
-
 template oui_debug*[T](t: T) =
   ## Wraps `styled_echo` when -d:release isnt defined
   when defined releease:

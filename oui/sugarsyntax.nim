@@ -16,7 +16,7 @@
 import macros, strutils
 from colors import parse_color, extract_rgb
 import nanovg except text
-import types, node, utils, json
+import types, node, utils, json, tables
 import testaid
 
 when glfw_supported():
@@ -49,31 +49,6 @@ template node*(kind: UiNodeKind, inner: untyped,
     if parents.len > 0:
       discard parents.pop()
 
-macro decl_style*(name, inner: untyped) =
-  var styles: seq[tuple[name, color: string]] = @[]
-  assert inner.kind == nnkStmtList
-  for call in inner:
-    assert call.kind == nnkCall
-    styles.add((name: call[0].str_val, color: call[1][0].repr))
-  var
-    type_name = name.str_val
-    type_str = ""
-    var_str = ""
-    i = 0
-  for style in styles:
-    type_str.add style.name
-    var_str.add style.name & ": " & style.color
-    if i != styles.len - 1:
-      type_str.add ", "
-      var_str.add ", "
-    i.inc
-  result = parse_stmt("""
-type
-  $1* = tuple[$2: Color]
-var $3* = ($4)
-  """ % [type_name.capitalize_ascii.str_to_camel_case & "Style", type_str,
-      type_name & "_style", var_str])
-
 template decl_ui_node(name: untyped, kind: UiNodeKind) =
   template name*(inner: untyped) =
     var tmpself = self
@@ -83,8 +58,8 @@ template decl_ui_node(name: untyped, kind: UiNodeKind) =
     parent = tmpparent
 
 decl_ui_node window, UiWindow
-decl_ui_node box, UiBox
 decl_ui_node text, UiText
+decl_ui_node box, UiBox
 decl_ui_node canvas, UiCanvas
 decl_ui_node layout, UiLayout
 decl_ui_node image, UiImage

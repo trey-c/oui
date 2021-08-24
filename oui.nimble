@@ -3,6 +3,7 @@ author = "Trey Cutter"
 description = "Ocicat Ui Framework (oui)"
 license = "Apache License 2.0"
 backend = "c"
+bin = @["oui/deployandroid", "oui/testaid"]
 
 requires "nim >= 1.4.0"
 

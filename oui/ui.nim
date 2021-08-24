@@ -50,35 +50,31 @@ template stack_switch*(node, target: UiNode, animate: untyped) =
       break
   node.queue_redraw()
 
-decl_style button:
-  normal: rgb(241, 241, 241)
-  hover: rgb(200, 200, 200)
-  active: rgb(100, 100, 100)
-  border: rgb(210, 210, 210)
+ui_theme["button.normal"] = rgb(241, 241, 241)
+ui_theme["button.hover"] = rgb(200, 200, 200)
+ui_theme["button.active"] = rgb(130, 130, 130)
 
-template button*(inner: untyped, style: ButtonStyle = button_style) =
+template button*(inner: untyped) =
   box:
-    color style.normal
+    color ui_theme["button.normal"]
     radius 2
-    border_width 2
-    border_color style.border
     mouse_enter:
-      color style.hover
+      color ui_theme["button.hover"]
       self.queue_redraw()
     mouse_leave:
-      color style.normal
+      color ui_theme["button.normal"]
       self.queue_redraw()
     pressed:
-      color style.active
+      color ui_theme["button.active"]
       self.queue_redraw()
     released:
       when glfw_supported():
-        color style.hover
+        color ui_theme["button.hover"]
       when glfm_supported():
-        color style.normal
+        color ui_theme["button.normal"]
       self.queue_redraw()
     inner
-
+                                 
 proc text_box_key_press*(text: var string, event: var UiEvent, password,
     focused: bool, caretIndex: var int) =
   when glfw_supported():
@@ -100,15 +96,13 @@ proc text_box_key_press*(text: var string, event: var UiEvent, password,
         text.insert(event.ch.to_lower(), text.len())
     discard
 
-decl_style textbox:
-  normal: rgb(241, 241, 241)
-  border_focus: rgb(41, 41, 41)
-  border_normal: rgb(210, 210, 210)
-  txt: rgb(100, 100, 100)
-  txt_focus: rgb(35, 35, 35)
+ui_theme["textbox.normal"] = rgb(241, 241, 241)
+ui_theme["textbox.txt"] = rgb(100, 100, 100)
+ui_theme["textbox.txt_focus"] = rgb(35, 35, 35)
+ui_theme["textbox.carret"] = rgb(11, 11, 11)
 
 template textbox*(inner: untyped, textstr: var string, label: string,
-    password: bool = false, style: TextboxStyle = textbox_style) =
+    password: bool = false) =
   var
     caretX = 0.0
     caretIndex = 0
@@ -116,10 +110,7 @@ template textbox*(inner: untyped, textstr: var string, label: string,
     nglyphs = 0
   box:
     accepts_focus true
-    border_width 2
-    color style.normal
-    border_color style.border_normal
-
+    color ui_theme["textbox.normal"]
     text:
       str label
       update:
@@ -147,9 +138,9 @@ template textbox*(inner: untyped, textstr: var string, label: string,
         else:
           str textstr
         if parent.has_Focus:
-          color style.txt_focus
+          color ui_theme["textbox.txt_focus"]
         else:
-          color style.txt
+          color ui_theme["textbox.txt"]
       mouse_press:
         nglyphs = self.window.vg.textGlyphPositions(self.x, self.y, textstr,
                                             0, textstr.len - 1, glyphs)
@@ -157,12 +148,6 @@ template textbox*(inner: untyped, textstr: var string, label: string,
           if event.x <= glyphs[j + 1].x and event.x >= glyphs[j].x:
             caretX = glyphs[j].x
             caretIndex = j
-    focus:
-      border_color style.border_focus
-      self.queue_redraw()
-    unfocus:
-      border_color style.border_normal
-      self.queue_redraw()
     key_press:
       if self.has_focus == false:
         return
@@ -175,7 +160,7 @@ template textbox*(inner: untyped, textstr: var string, label: string,
         if caretIndex == j:
           caretX = glyphs[j].x
       vg.rect(caretX, 0, 1.5, self.minh)
-      vg.fillColor(rgb(0, 0, 250))
+      vg.fillColor(ui_theme["textbox.carret"])
       vg.fill()
     inner
 
@@ -460,6 +445,8 @@ template calendar*(inner: untyped, year, month: int, cb: proc(day, month, year: 
 testaid:
   test "bargraph":
     bargraph:
+      pressed:
+        echo $ui_theme
       json_array ( %* [
         {"xname": "Apple", "yval": 49},
         {"xname": "Grape", "yval": 29},
