@@ -32,7 +32,7 @@ proc glfw_supported*(): bool =
     false
 
 when glfw_supported():
-  import glfw
+  import nimgl/glfw
 
 when glfm_supported():
   import glfm/glfm
@@ -47,15 +47,15 @@ type
     case kind*: UiEventKind
     of UiKeyPress, UiKeyRelease:
       when glfw_supported():
-        key*: Key
-        mods*: set[ModifierKey]
+        key*: int32
+        mods*: int32
       ch*: string
     of UiTouch:
       when glfm_supported():
         phase*: GLFMTouchPhase
     of UiMousePress, UiMouseRelease:
       when glfw_supported():
-        button*: MouseButton
+        button*: int32
       discard
     else:
       discard
@@ -81,7 +81,7 @@ type
   UiNodeKind* = enum
     UiWindow, UiBox, UiText,
     UiImage, UiCanvas, UiLayout,
-    UiOpenGl
+    UiOpenGl, UiEmbedded
 
   UiNode* = ref object
     parent*, window*: UiNode
@@ -111,9 +111,8 @@ type
     case kind*: UiNodeKind
     of UiWindow:
       when glfw_supported():
-        handle*: glfw.Window
+        handle*: GLFWWindow
       vg*: NVGContext
-      buffer*: NVGLUFramebuffer
       title*: string
       exposed*, is_popup*: bool
       focused_node*: UiNode
@@ -140,3 +139,6 @@ type
       datapaint*: Paint
     of UiOpenGl:
       render*: seq[RenderCb]
+    of UiEmbedded:
+      winid*: int64
+

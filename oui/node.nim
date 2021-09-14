@@ -9,9 +9,9 @@ when glfm_supported():
   import jnim
 
 when glfw_supported():
-  import glfw
-  import private/gladgl
+  import nimgl/[glfw, opengl]
 
+import winim/lean
 import utils
 import json, tables
 import nanovg
@@ -144,17 +144,17 @@ template handle_event_offset(window, child: UiNode, ev: var UiEvent) =
 proc request_focus*(node, target: UiNode) {.gcsafe, exportc.} =
   assert node.kind == UiWindow
   when glfw_supported():
-    node.handle.focus()
+    node.handle.focusWindow()
   if node.focused_node != nil:
     node.focused_node.has_focus = false
     {.cast(gcsafe).}:
       var e = UiEvent(kind: UiUnfocus, x: 0, y: 0)
       node.handle_event_offset(node.focused_node, e)
-  node.focused_node = target
   target.has_focus = true
   {.cast(gcsafe).}:
     var e = UiEvent(kind: UiFocus, x: 0, y: 0)
     node.handle_event_offset(target, e)
+  node.focused_node = target
 
 proc contains*(node: UiNode, x, y: float32): bool =
   node.x < x and x < (node.x + node.w) and
@@ -195,7 +195,12 @@ proc real_root_coords*(node: UiNode): tuple[x, y: int32] =
   ## Works for both windows and any of their children
   when glfw_supported():
     if node.kind == UiWindow:
-      result = node.handle.pos
+      var 
+        x: int32 = 0
+        y: int32 = 0
+      node.handle.getWindowPos(addr x, addr y)
+      result.x = x
+      result.y = y
     else:
       var pos = node.parent.real_root_coords()
       result = (x: int32(self.x) + pos.x, y: int32(self.y) + pos.y)
@@ -205,7 +210,12 @@ proc real_root_coords*(node: UiNode): tuple[x, y: int32] =
 proc move*(node: UiNode, x, y: float) {.exportc.} =
   when glfw_supported():
     if node.kind == UiWindow:
-      node.handle.pos = (x: int32 x, y: int32 y)
+      node.handle.setWindowPos(int32 x, int32 y)
+    if node.kind == UiEmbedded:
+      var win = cast[HWND](node.winid)
+      discard MoveWindow(win, int32 x, int32 y, int32 -1, int32 -1, true)
+      discard UpDateWindow(win)
+
   when glfm_supported():
     discard
 
@@ -220,7 +230,7 @@ proc resize*(node: UiNode, w, h: float32) =
   if node.kind == UiWindow:
     if node.resizing == false:
       when glfw_supported():
-        node.handle.size = (w: int32 w, h: int32 h)
+        node.handle.setWindowSize(int32 w, int32 h)
       when glfm_supported():
         discard
     node.w = w
@@ -330,7 +340,7 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
       continue
     if n.contains(float32(ev.x), float32(ev.y)) or n.has_focus:
       when glfw_supported():
-        if ev.kind == UiMousePress and ev.button == mb1:
+        if ev.kind == UiMousePress and ev.button == 0:
           if n.accepts_focus and n.has_focus == false:
             window.request_focus(n)
       when defined android:
@@ -359,7 +369,7 @@ proc handle_event*(window, node: UiNode, ev: var UiEvent) =
 proc hide*(node: UiNode) {.exportc.} =
   if node.kind == UiWindow:
     when glfw_supported():
-      node.handle.hide()
+      node.handle.hideWindow()
   node.visible = false
   for h in node.hidden:
     h(node, node.parent)
@@ -370,109 +380,119 @@ when glfw_supported():
   proc oui_glfw_main*(window: UiNode) =
     var close = false
     while close != true:
-      glfw.swapInterval(0)
+      glfwSwapInterval(0)
       if window.visible == false:
         close = true
       for win in windows:
-        if win.handle.should_close():
+        if win.handle.window_should_close():
           win.hide()
         if win.visible:
           glfw.makeContextCurrent(win.handle)
           win.draw_opengl()
-          glfw.swapBuffers(win.handle)
-      glfw.waitEvents()
+          swapBuffers(win.handle)
+      glfwWaitEvents()
 
   var glfw_not_inited: bool = true
-  proc create_glfw_window(window: UiNode): glfw.Window =
+  proc create_glfw_window(win: UiNode): GLFWWindow =
     if glfw_not_inited:
-      glfw.initialize()
+      discard glfwInit()
 
-    var cfg = DefaultOpenglWindowConfig
-    cfg.size = (w: int window.w, h: int window.h)
-    cfg.title = "oui_glfw_window"
-    cfg.resizable = window.resizable
-    cfg.decorated = if window.borderless: false else: true
-    cfg.visible = false
-    cfg.transparentFramebuffer = true
-    cfg.bits = (r: 8, g: 8, b: 8, a: 8, stencil: 8, depth: 16)
-    when defined android:
-      cfg.version = glv30
-    else:
-      cfg.version = glv20
-    cfg.debugContext = true
-    result = newWindow(cfg)
-    glfw.makeContextCurrent(result)
+    glfwWindowHint(GLFW_SAMPLES, 2)
+    glfwWindowHint(GLFW_STENCIL_BITS, 8)
+    glfwWindowHint(GLFW_RED_BITS, 8)
+    glfwWindowHint(GLFW_GREEN_BITS, 8)
+    glfwWindowHint(GLFW_BLUE_BITS, 8)
+    glfwWindowHint(GLFW_DEPTH_BITS, 16)
+    glfwWindowHint(GLFW_RESIZABLE, int32 win.resizable)
+    glfwWindowHint(GLFW_DECORATED, if win.borderless: 0 else: 1)
+    result = glfwCreateWindow(int32 win.w, int32 win.h, win.title, nil, nil)
+    result.setWindowUserPointer(cast[pointer](win))
+    makeContextCurrent(result)
     if glfw_not_inited:
       glfw_not_inited = false
-      nvgInit(getProcAddress)
-      if not gladLoadGL(getProcAddress):
-        oui_error "glad failed to load gl"
+      nvgInit(glfwGetProcAddress)
+      discard glInit()
 
-    result.windowSizeCb = proc(w: glfw.Window, size: tuple[w, h: int32]) =
-      window.resizing = true
-      window.resize(float size.w, float size.h)
-      window.resizing = false
+    proc sizeCb(window: GLFWWindow, width, height: int32) {.cdecl.} =
+      var win = cast[UiNode](window.getWindowUserPointer())
+      win.resizing = true
+      win.resize(float width, float height)
+      win.resizing = false
+    discard result.setWindowSizeCallback(sizeCb)
 
     when defined windows:
       # Allows the window to redraw while being resized
-      result.framebufferSizeCb = proc(w: glfw.Window, size: tuple[w, h: int32]) =
+      proc fbSizeCb(w: GLFWWindow, width, height: int32) {.cdecl.} =
+        var win = cast[UiNode](w.getWindowUserPointer())
         w.swapBuffers()
+      discard result.setFramebufferSizeCallback(fbSizeCb)
 
-    result.mouseButtonCb = proc(w: glfw.Window, b: MouseButton, pressed: bool,
-        mods: set[ModifierKey]) =
-      if pressed:
-        var e = UiEvent(kind: UiMousePress, button: b, x: window.cursor_pos.x,
-            y: window.cursor_pos.y)
-        window.handle_event(window, e)
+    proc mouseButtonCb(w: GLFWWindow, button, action, mods: int32) {.cdecl.} =
+      var win = cast[UiNode](w.getWindowUserPointer())
+      if action == GLFWPress:
+        var e = UiEvent(kind: UiMousePress, button: button, x: win.cursor_pos.x,
+            y: win.cursor_pos.y)
+        win.handle_event(win, e)
       else:
-        var e = UiEvent(kind: UiMouseRelease, button: b, x: window.cursor_pos.x,
-            y: window.cursor_pos.y)
-        window.handle_event(window, e)
+        var e = UiEvent(kind: UiMouseRelease, button: button, x: win.cursor_pos.x,
+            y: win.cursor_pos.y)
+        win.handle_event(win, e)
+    discard result.setMouseButtonCallback(mouseButtonCb)
 
-    result.cursorPositionCb = proc(w: glfw.Window, pos: tuple[x, y: float64]) =
-      window.cursor_pos = (x: pos.x, y: pos.y)
-      var e = UiEvent(kind: UiMouseMotion, x: pos.x, y: pos.y)
-      window.handle_event(window, e)
+    proc cursorPosCb(w: GLFWWindow, xpos, ypos: float64) {.cdecl.} =
+      var win = cast[UiNode](w.getWindowUserPointer())
+      win.cursor_pos = (x: float xpos, y: float ypos)
+      var e = UiEvent(kind: UiMouseMotion, x: float xpos, y: float ypos)
+      win.handle_event(win, e)
+    discard result.setCursorPosCallback(cursorPosCb)
 
-    result.cursorEnterCb = proc(w: glfw.Window, entered: bool) =
+    proc cursorEnterCb(w: GLFWWindow, entered: bool) {.cdecl.} =
+      var win = cast[UiNode](w.getWindowUserPointer())
       if entered:
-        var e = UiEvent(kind: UiEnter, x: window.cursor_pos.x,
-            y: window.cursor_pos.y)
-        window.handle_event(window, e)
+        var e = UiEvent(kind: UiEnter, x: win.cursor_pos.x,
+            y: win.cursor_pos.y)
+        win.handle_event(win, e)
       else:
-        var e = UiEvent(kind: UiLeave, x: window.cursor_pos.x,
-            y: window.cursor_pos.y)
-        window.handle_event(window, e)
+        var e = UiEvent(kind: UiLeave, x: win.cursor_pos.x,
+            y: win.cursor_pos.y)
+        win.handle_event(win, e)
+    discard result.setCursorEnterCallback(cursorEnterCb)
 
-    result.window_focus_cb = proc(w: glfw.Window, focused: bool) =
+    proc focusCb(w: GLFWWindow, focused: bool) {.cdecl.} =
+      var win = cast[UiNode](w.getWindowUserPointer())
       if focused:
         var e = UiEvent(kind: UiFocus, x: 0, y: 0)
-        window.handle_event(window, e)
+        win.handle_event(win, e)
       else:
         var e = UiEvent(kind: UiUnfocus, x: 0, y: 0)
-        window.handle_event(window, e)
+        win.handle_event(win, e)
+    discard result.setWindowFocusCallback(focusCb)
 
-    result.charCb = proc(w: glfw.Window, codePoint: Rune) =
-      var e = UiEvent(kind: UiKeyPress, key: keyUnknown, mods: {},
-          ch: codePoint.toUTF8(),
-        x: window.cursor_pos.x, y: window.cursor_pos.y)
-      window.handle_event(window, e)
+    proc charCb(w: GLFWWindow, codepoint: uint32) {.cdecl.} =
+      var win = cast[UiNode](w.getWindowUserPointer())
+      var e = UiEvent(kind: UiKeyPress, key: GLFWKey.Escape, mods: -1,
+          ch: $codepoint,
+        x: win.cursor_pos.x, y: win.cursor_pos.y)
+      win.handle_event(win, e)
+    discard result.setCharCallback(charCb)
 
-    result.keyCb = proc(w: glfw.Window, key: Key, scanCode: int32,
-        action: KeyAction, mods: set[ModifierKey]) =
-      if action == kaDown:
+    proc keyCb(w: GLFWWindow, key, scancode, action, mods: int32) {.cdecl.} =
+      var win = cast[UiNode](w.getWindowUserPointer())
+      if action == GLFWPress:
         var e = UiEvent(kind: UiKeyPress, key: key, mods: mods, ch: "",
-          x: window.cursor_pos.x, y: window.cursor_pos.y)
-        window.handle_event(window, e)
-      elif action == kaUp:
+          x: win.cursor_pos.x, y: win.cursor_pos.y)
+        win.handle_event(win, e)
+      elif action == GLFWRelease:
         var e = UiEvent(kind: UiKeyRelease, key: key, mods: mods, ch: "",
-          x: window.cursor_pos.x, y: window.cursor_pos.y)
-        window.handle_event(window, e)
+          x: win.cursor_pos.x, y: win.cursor_pos.y)
+        win.handle_event(win, e)
+    discard result.setKeyCallback(keyCb)
 
 proc ensure_minimum_size(node: UiNode) {.exportc.} =
   ## Resizes the node's w/h when < minw/minh
   node.update_attributes.add proc(s, p: UiNode) =
     if s.kind == UiText:
+      s.window.vg.fontSize(s.size)
       if s.window != nil:
         if s.window.vg != nil:
           s.minh = 0
@@ -481,8 +501,8 @@ proc ensure_minimum_size(node: UiNode) {.exportc.} =
               (a, b, lineh) = s.window.vg.textMetrics()
               txtw = s.window.vg.text_width(str)
             if txtw > s.minw:
-              s.minw = txtw + (s.size * 2)
-            s.minh += lineh + s.size
+              s.minw = txtw
+            s.minh += s.size
 
     if s.w < s.minw and s.minw > 0:
       s.w = s.minw
@@ -490,7 +510,7 @@ proc ensure_minimum_size(node: UiNode) {.exportc.} =
       s.h = s.minh
     when glfw_supported():
       if s.kind == UiWindow:
-        s.handle.set_size_limits(int32 s.minw, int32 s.minh, -1, -1)
+        s.handle.setWindowSizeLimits(int32 s.minw, int32 s.minh, -1, -1)
 
 ui_theme["window.color"] = rgb(255, 255, 255)
 ui_theme["text.color"] = rgb(11, 11, 11)
@@ -598,8 +618,8 @@ proc show*(node: UiNode) =
           node.vg.load_font_by_name("bauhaus")
       node.resize(node.w, node.h)
       when glfw_supported():
-        node.handle.show()
-        node.handle.shouldClose = false
+        node.handle.showWindow()
+        node.handle.setWindowShouldClose(false)
     else:
       if node.parent == nil and node.window == nil:
         node.trigger_update_attributes()

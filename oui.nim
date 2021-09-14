@@ -5,8 +5,8 @@ import algorithm, sequtils, json
 export sequtils, algorithm, json
 
 when glfw_supported():
-  import glfw
-  export glfw
+  import nimgl/[glfw, opengl]
+  export glfw, opengl
 
 when glfm_supported():
   import glfm/glfm

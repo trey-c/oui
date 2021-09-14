@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import macros, strutils, glfw
+import macros, strutils, nimgl/glfw
 import nanovg except text
 import types, node, sugarsyntax, utils
 import times
@@ -34,7 +34,7 @@ template arrange_row_or_column*(min1, min2, axis, size: untyped, node: UiNode) =
     if i == node.children.len:
       node.`min2` += child.`min2`
     else:
-      node.`min2` += child.`min2` + self.spacing
+      node.`min2` += child.`min2` + self.spacing + 1
 
     child.`axis` = tmp
     tmp = tmp + child.`size` + node.spacing
@@ -79,18 +79,18 @@ proc text_box_key_press*(text: var string, event: var UiEvent, password,
     focused: bool, caretIndex: var int) =
   when glfw_supported():
     case event.key:
-    of keyLeft:
+    of GLFWKey.Left:
       caretIndex -= 1
-    of keyRight:
+    of GLFWKey.Right:
       caretIndex += 1
-    of keyBackspace:
+    of GLFWKey.Backspace:
       if text.len() > 0:
         text.delete(text.len() - 1, text.len())
         caretIndex -= 1
       else:
         text.set_len(0)
     else:
-      if event.mods.contains(mkShift) or event.mods.contains(mkCapsLock):
+      if event.mods == GLFWKey.LeftShift or event.mods == GLFWKey.Capslock:
         text.insert(event.ch.to_upper(), text.len())
       else:
         text.insert(event.ch.to_lower(), text.len())
@@ -238,15 +238,15 @@ template scrollable*(inner: untyped) =
       swiping = false
     when glfw_supported():
       mouse_press:
-        if event.button == mb1:
+        if event.button == 1:
           swiping = true
-        if event.button == mb4:
+        if event.button == 4:
           yoffset = yoffset + 8
-        elif event.button == mb5:
+        elif event.button == 5:
           yoffset = yoffset - 8
         self.queue_redraw()
       mouse_release:
-        if event.button == mb1:
+        if event.button == 1:
           swiping = false
       mouse_motion:
         if swiping:
@@ -268,13 +268,13 @@ template popup*(inner: untyped) =
     resizable false
     unfocus:
       self.hide()
-    when glfw_supported():
-      shown:
-        let
-          cursorpos = cursor_pos(self.handle)
-          windowpos = pos(self.handle)
-        self.move(float(windowpos.x + int(cursorpos.x)), float(windowpos.y +
-            int(cursorpos.y)))
+    # when glfw_supported():
+    #   shown:
+    #     let
+    #       cursorpos = cursor_pos(self.handle)
+    #       windowpos = pos(self.handle)
+    #     self.move(float(windowpos.x + int(cursorpos.x)), float(windowpos.y +
+    #         int(cursorpos.y)))
     inner
 
 template stack*(inner: untyped) =

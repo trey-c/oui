@@ -20,7 +20,7 @@ import types, node, utils, json, tables
 import testaid
 
 when glfw_supported():
-  import glfw
+  import nimgl/glfw
 when glfm_supported():
   import glfm/glfm
 
@@ -314,7 +314,7 @@ template pressed*(inner: untyped) =
   ## Gets called when mouse button 1 gets press. Typically used with buttons
   when glfw_supported():
     mouse_press:
-      if event.button == mb1:
+      if event.button == 0:
         inner
   when glfm_supported():
     touch:
@@ -324,7 +324,7 @@ template pressed*(inner: untyped) =
 template released*(inner: untyped) =
   when glfw_supported():
     mouse_release:
-      if event.button == mb1:
+      if event.button == 0:
         inner
   when glfm_supported():
     touch:
