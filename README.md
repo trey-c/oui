@@ -59,17 +59,9 @@ Listed below is what certain or all **oui** modules depend on. Nimble dependenci
 - glfw (desktop only)
 - gflm (mobile only)
 - androidndk (android only)
-
-#### Addons
-
-- oui/mapbox.nim
-  * mapbox-gl-native
+- oui's tangram-es fork (`oui/map.nim` only)
 
 ### Installing/building
-
-#### Nim
-
-https://www.nim-lang.org/downloads
 
 #### Linux 
 
@@ -80,13 +72,22 @@ Install a package like `glfw` or `glfw-x11` or `glfw-wayland` from your distro's
 
 #### Windows 10
 
-https://www.msys2.org or any other method for installing mingw64 packages
-
-Avoid installing glfw or nano because the nim bindings use their c source files for static compilation.
+Download git https://git-scm.com/downloads
+Download nim https://www.nim-lang.org/downloads
 
 ```shell
-> pacman -S --needed base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-nim mingw-w64-x86_64-nimble mingw-w64-x86_64-nimble
+> git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+> cd C:\vcpkg
+> .\bootstrap-vcpkg.bat
+> .\vcpkg install glfw3:x64-windows
+> .\vcpkg integrate install
 ```
+
+**importing `oui/map.nim` requires**
+  - CMake https://cmake.org/download/ 
+  - MSBuild (using the Visual Studio 
+  Installer) https://visualstudio.microsoft.com/downloads/
+  - oui's tangram-es fork https://github.com/trey-c/tangram-es.git. 
 
 #### Android
 
