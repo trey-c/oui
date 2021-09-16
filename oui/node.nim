@@ -492,7 +492,8 @@ proc ensure_minimum_size(node: UiNode) {.exportc.} =
   ## Resizes the node's w/h when < minw/minh
   node.update_attributes.add proc(s, p: UiNode) =
     if s.kind == UiText:
-      s.window.vg.fontSize(s.size)
+      if not s.window.is_nil():
+        s.window.vg.fontSize(s.size)
       if s.window != nil:
         if s.window.vg != nil:
           s.minh = 0
