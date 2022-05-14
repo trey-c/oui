@@ -1,5 +1,7 @@
 ## Ocicat Ui Framework (oui)
 
+:warning: :warning: :warning: **Repo is temporarily frozen as I've been rewriting 'nanovg'** :warning: :warning: :warning:
+
 > :warning: Read the [manual](doc/MANUAL.md) before trying and understand that **oui** is pre-v1.0.0 with **lots of bugs** :warning:
 
 Open source, and expressive Ui framework with near native preformance, an easy to use syntax, addon modules, and a GUI for seamless deployments (Desktop & Mobile)
