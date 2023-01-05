@@ -1,11 +1,19 @@
 ## Ocicat Ui Framework (oui)
 
-:warning: :warning: :warning: **Repo is temporarily frozen as I've been rewriting 'nanovg'** :warning: :warning: :warning:
+:warning: :warning: :warning:
+
+**Project has been killed. Why?**
+
+I'm no longer a full-time programmer & [Flutter](https://flutter.dev/) **fulfills all** the goals of **oui**; it has hot reloading and constraint layouts with near native performance on all major platforms (windows/android/ios). 
+
+Also in hindsight, Nim was a **bad** choice for such a project. Zero hot reloading without **messy** hacks and still struggles to be setup on windows with any consistency (https://github.com/dom96/choosenim/issues/263 is still a problem)
+
+:warning: :warning: :warning:
 
 > :warning: Read the [manual](doc/MANUAL.md) before trying and understand that **oui** is pre-v1.0.0 with **lots of bugs** :warning:
 
 Open source, and expressive Ui framework with near native preformance, an easy to use syntax, addon modules, and a GUI for seamless deployments (Desktop & Mobile)
-
+fw
 ### Features
 
 - No html/css/nodejs
